@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+test-results
+playwright-report
+blob-report
+package-lock.json
+
+# Prose docs, not code — hand-formatted tables/prose, not Prettier's job.
+.claude/**/*.md
