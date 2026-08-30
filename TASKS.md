@@ -397,14 +397,13 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       untouched, every ball in the group rescaled — not just the primary
       one) plus a manual verification confirming the real in-browser speed
       actually changes the instant the booster is caught.
+- [x] **CI workflow** (Aug 30, 2026). Added a GitHub Actions workflow
+      (`.github/workflows/ci.yml`) that triggers on every push and PR to
+      run `npm test` (including typecheck, linting, formatting, unit tests,
+      and Playwright E2E tests).
 
 ## Backlog
 
-- [ ] **CI workflow.** No git remote yet — once this is pushed to GitHub, add
-      a GitHub Actions workflow running `npm test` (typecheck + lint +
-      format:check + unit + e2e) on every push/PR, using Playwright's
-      official Docker image or `npx playwright install --with-deps` in the
-      runner.
 - [ ] **Integration-level coverage is currently folded into the E2E suite**
       (see gameHooks.ts's doc comment) rather than a separate layer — revisit
       if the scene logic ever gets complex enough to warrant testing without
