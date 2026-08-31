@@ -145,17 +145,22 @@ test.describe("Per-level booster behavior", () => {
 
     // Fire straight up through a real column of bricks via the actual
     // registered collider/overlap pair — velocity must never reverse
-    // (a reversal would mean it bounced instead of piercing). Starts just
-    // below row 2 (not row 5+), well within Burning Ball's real-time
-    // duration (BURNING_BALL_DURATION_MS, several seconds) for the ~600ms
-    // this needs to clear rows 2/1/0.
+    // (a reversal would mean it bounced instead of piercing).
+    //
+    // The start point is derived from the column's own lowest brick rather
+    // than hardcoded: it has to be far enough below the arena's top rail
+    // that the ball can't reach and bounce off it within the sample window
+    // (300px/s for 400ms travels ~120px), and a literal Y silently stopped
+    // satisfying that the moment the grid moved.
     const result = await page.evaluate(async () => {
       const s = window.__game.scene.getScene("prototype");
-      const col = s.bricks.getChildren()[0];
+      const colX = s.bricks.getChildren()[0].x as number;
+      const column = s.bricks.getChildren().filter((b: any) => Math.abs(b.x - colX) < 2);
+      const lowestY = Math.max(...column.map((b: any) => b.y as number));
       const bricksBefore = s.bricks.countActive(true);
       s.state = "playing";
-      s.primaryBall.x = col.x;
-      s.primaryBall.y = 145;
+      s.primaryBall.x = colX;
+      s.primaryBall.y = lowestY + 40;
       s.primaryBall.body.setVelocity(0, -300);
       await new Promise((resolve) => setTimeout(resolve, 400));
       return { vy: s.primaryBall.body.velocity.y, bricksAfter: s.bricks.countActive(true), bricksBefore };

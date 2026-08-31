@@ -1,5 +1,11 @@
 import Phaser from "phaser";
 import { TEXT_COLOR_GOLD, TEXT_COLOR_WHITE } from "../constants";
+
+// Top status bar geometry — the band above the arena (see ARENA_TOP).
+const HUD_EDGE = 16;
+const HUD_PAD_X = 13;
+const HUD_ROW_Y = 40;
+const HUD_BOOSTER_Y = 78;
 import {
   BUTTON_DEPTH,
   outlinedTextStyle,
@@ -10,8 +16,11 @@ import {
 } from "../ui/theme";
 
 /**
- * All of PrototypeScene's on-screen text in one place — lives/level/booster
- * status in the corner, plus the win/lose message and its action button.
+ * All of PrototypeScene's on-screen text in one place — a top status bar
+ * (lives left, level right, active boosters centered beneath), plus the
+ * win/lose message and its action button. The bar spans the full width
+ * rather than stacking in one corner: the band above the arena is dead
+ * space otherwise, and a lone box with an empty half reads as unfinished.
  * Pulled out of the scene so create() isn't the one composing five
  * Phaser.GameObjects.Text calls inline.
  *
@@ -28,18 +37,29 @@ export class Hud {
   readonly messageText: Phaser.GameObjects.Text;
   readonly actionText: Phaser.GameObjects.Text;
 
-  private readonly cornerPanel: Phaser.GameObjects.Graphics;
+  private readonly livesPill: Phaser.GameObjects.Graphics;
+  private readonly levelPill: Phaser.GameObjects.Graphics;
+  private readonly boosterPill: Phaser.GameObjects.Graphics;
   private readonly actionButtonBg: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene) {
     const { width, height } = scene.scale;
 
-    // Drawn first so it renders behind the corner text stack.
-    this.cornerPanel = scene.add.graphics();
-    this.livesText = scene.add.text(28, 18, "", outlinedTextStyle("20px", 3));
-    this.levelText = scene.add.text(28, 44, "", outlinedTextStyle("15px", 2));
-    this.boosterText = scene.add.text(28, 66, "", outlinedTextStyle("14px", 2, TEXT_COLOR_GOLD));
-    this.redrawCornerPanel();
+    // Each pill is drawn before its label so it renders behind it.
+    this.livesPill = scene.add.graphics();
+    this.livesText = scene.add
+      .text(HUD_EDGE + HUD_PAD_X, HUD_ROW_Y, "", outlinedTextStyle("19px", 3))
+      .setOrigin(0, 0.5);
+
+    this.levelPill = scene.add.graphics();
+    this.levelText = scene.add
+      .text(width - HUD_EDGE - HUD_PAD_X, HUD_ROW_Y, "", outlinedTextStyle("15px", 2))
+      .setOrigin(1, 0.5);
+
+    this.boosterPill = scene.add.graphics();
+    this.boosterText = scene.add
+      .text(width / 2, HUD_BOOSTER_Y, "", outlinedTextStyle("13px", 2, TEXT_COLOR_GOLD))
+      .setOrigin(0.5, 0.5);
 
     // Drawn before actionText so it renders behind it; hidden until setAction().
     this.actionButtonBg = scene.add.graphics().setVisible(false);
@@ -72,14 +92,17 @@ export class Hud {
     });
   }
 
-  private redrawCornerPanel(): void {
-    const pad = 10;
-    const width = Math.max(this.livesText.width, this.levelText.width, this.boosterText.width) + pad * 2;
-    const top = this.livesText.y - pad;
-    const bottom = this.boosterText.y + this.boosterText.height + pad;
-    // Rounded-rect corners, not a full pill — a half-height radius on a
-    // panel this tall reads as a lozenge and crowds the text.
-    paintPillBackground(this.cornerPanel, 16, top, width, bottom - top, 14);
+  /** Redraws one pill sized to its label's real rendered bounds. Works for
+   * left-, right-, and centre-anchored labels alike by deriving the text's
+   * left edge from its own origin rather than assuming one. */
+  private redrawPill(gfx: Phaser.GameObjects.Graphics, label: Phaser.GameObjects.Text, originX: number): void {
+    if (label.text.length === 0) {
+      gfx.clear();
+      return;
+    }
+    const textLeft = label.x - originX * label.width;
+    const h = label.height + 10;
+    paintPillBackground(gfx, textLeft - HUD_PAD_X, label.y - h / 2, label.width + HUD_PAD_X * 2, h);
   }
 
   private paintActionButton(hover: boolean): void {
@@ -99,17 +122,17 @@ export class Hud {
 
   setLives(lives: number): void {
     this.livesText.setText(`Lives: ${lives}`);
-    this.redrawCornerPanel();
+    this.redrawPill(this.livesPill, this.livesText, 0);
   }
 
   setLevel(levelIndex: number, levelName: string): void {
     this.levelText.setText(`Level ${levelIndex + 1}: ${levelName}`);
-    this.redrawCornerPanel();
+    this.redrawPill(this.levelPill, this.levelText, 1);
   }
 
   setBoosterStatus(text: string): void {
     this.boosterText.setText(text);
-    this.redrawCornerPanel();
+    this.redrawPill(this.boosterPill, this.boosterText, 0.5);
   }
 
   showMessage(text: string): void {

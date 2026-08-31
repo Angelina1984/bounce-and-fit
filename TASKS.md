@@ -581,6 +581,37 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       the shade is the only feedback now, so asserting the data value alone
       would miss the whole point.
 
+- [x] **Candy UI, pass 4 — typography and a real arena** (Aug 30, 2026).
+      Prompted by "I still don't like the look-n-feel — should we use a
+      dedicated framework?" The answer was no, and the diagnosis was
+      specific rather than general: every text object was rendering in
+      Phaser's default **monospace** fallback, which is the loudest possible
+      "programmer prototype" signal and has nothing to do with the engine.
+      Loaded Fredoka (rounded display face) via Google Fonts, with
+      `document.fonts.load()`/`.ready` awaited before `new Phaser.Game()` —
+      Phaser measures and caches Text metrics at creation and never reflows,
+      so booting first would have locked in the fallback layout. Guarded so
+      a blocked/offline font never prevents the game from starting.
+      Second fix: the bricks floated in undefined space. Added a **playfield
+      arena** — `physics.world.setBounds()` inset to `ARENA_MARGIN_X`/
+      `ARENA_TOP` with a frame drawn on exactly those bounds, so the walls
+      the player sees are the walls the ball bounces off. Drawn with left,
+      top and right rails only: the bottom is where the ball is lost, and a
+      rail across it would promise a floor the bounds deliberately don't
+      have. `BRICK_WIDTH` 54→51 so the grid fits inside the rails.
+      Third: the HUD was one box in a corner with an empty half beside it —
+      now a top bar with the lives pill left, level pill right, and active
+      boosters centered beneath.
+- [x] **Fixed a test that hardcoded the old grid position** (Aug 30, 2026).
+      Level 5's Burning Ball test started the ball at a literal `y = 145`,
+      which after the grid moved sat close enough to the new arena's top
+      rail that the ball bounced off it — reversing velocity and failing an
+      assertion that it never reverses. A real consequence of the arena
+      change, caught by the suite. Now derives the start point from the
+      column's own lowest brick, so it stays clear of the rail whatever the
+      grid does. Third instance of the same root cause (see the `(240, 460)`
+      cleanup above) — layout literals in tests are a recurring trap here.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

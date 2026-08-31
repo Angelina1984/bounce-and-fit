@@ -4,6 +4,8 @@ import { buildBrickGrid } from "../gameplay/brickGrid";
 import { ballSpeedForLevel, bounceOffsetToAngleRad, velocityFromAngle } from "../gameplayMath";
 import {
   BALL_RADIUS,
+  ARENA_MARGIN_X,
+  ARENA_TOP,
   BALL_SERVE_OFFSET_Y,
   BRICK_TINTS_BY_HITS,
   BALL_SPEED,
@@ -32,6 +34,7 @@ import { LEVELS, POWER_UP_TINTS } from "../levelData";
 import type { BoosterType, HazardType } from "../levelData";
 import { Hud } from "./Hud";
 import { addBackdrop, ensureCandyTextures } from "../ui/textures";
+import { paintArena } from "../ui/theme";
 import { brickBurst, catchPop, lifeLostShake, paddleSquash } from "../ui/juice";
 
 // Matches Phaser.Types.Physics.Arcade.ArcadePhysicsCallback's parameter
@@ -72,6 +75,8 @@ export class PrototypeScene extends Phaser.Scene {
   // viewport's aspect (see main.ts) — not fixed constants.
   private paddleY = 0;
   private ballServeY = 0;
+  private arenaLeft = 0;
+  private arenaRight = 0;
 
   private livesRemaining = MAX_LIVES;
   private state: GameState = GAME_STATE.SERVING;
@@ -103,6 +108,15 @@ export class PrototypeScene extends Phaser.Scene {
     this.ballServeY = this.paddleY - BALL_SERVE_OFFSET_Y;
 
     addBackdrop(this);
+
+    // The arena's visible frame and the physics world bounds are the same
+    // rectangle by construction — see paintArena()'s note on why a wall you
+    // can see but not bounce off is worse than none.
+    this.arenaLeft = ARENA_MARGIN_X;
+    this.arenaRight = width - ARENA_MARGIN_X;
+    const arenaWidth = this.arenaRight - this.arenaLeft;
+    this.physics.world.setBounds(this.arenaLeft, ARENA_TOP, arenaWidth, height - ARENA_TOP);
+    paintArena(this.add.graphics().setDepth(-50), this.arenaLeft, ARENA_TOP, arenaWidth, height - ARENA_TOP);
 
     // scene.restart() (from "Tap to retry"/"Next Level"/"Play Again") reuses
     // this same instance rather than reconstructing it, so class-field
@@ -254,7 +268,7 @@ export class PrototypeScene extends Phaser.Scene {
     if (this.boosters.paddleFrozen) return; // Freeze Paddle hazard: input is ignored while active.
 
     const halfWidth = this.paddle.displayWidth / 2;
-    const clampedX = Phaser.Math.Clamp(pointerX, halfWidth, this.scale.width - halfWidth);
+    const clampedX = Phaser.Math.Clamp(pointerX, this.arenaLeft + halfWidth, this.arenaRight - halfWidth);
     this.paddle.x = clampedX;
     if (this.state === GAME_STATE.SERVING) {
       (this.balls.getChildren() as Phaser.Physics.Arcade.Image[]).forEach((ball) => {
@@ -406,7 +420,7 @@ export class PrototypeScene extends Phaser.Scene {
     let remaining = FORESIGHT_PREVIEW_LENGTH;
 
     for (let bounce = 0; bounce <= FORESIGHT_MAX_WALL_BOUNCES; bounce++) {
-      const distToWall = dx < 0 ? -x / dx : dx > 0 ? (this.scale.width - x) / dx : Infinity;
+      const distToWall = dx < 0 ? (this.arenaLeft - x) / dx : dx > 0 ? (this.arenaRight - x) / dx : Infinity;
       const segmentLength = Math.min(distToWall, remaining);
 
       for (let d = FORESIGHT_DOT_SPACING; d < segmentLength; d += FORESIGHT_DOT_SPACING) {

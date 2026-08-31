@@ -125,10 +125,17 @@ export const FORESIGHT_MAX_WALL_BOUNCES = 2;
 export const DOUBLE_BALL_SPAWN_COUNT = 2;
 export const TRIPLE_BALL_SPAWN_COUNT = 3;
 
+// Playfield arena — the ball's world bounds are inset to these, and a
+// frame is drawn exactly on them, so the walls the player can see are the
+// walls the ball actually bounces off. Previously the bounds were the raw
+// canvas edge, which left the bricks floating in an undefined space.
+export const ARENA_MARGIN_X = 7;
+export const ARENA_TOP = 104;
+
 // Brick grid
 export const BRICK_COLS = 8;
 export const BRICK_ROWS = 7;
-export const BRICK_WIDTH = 54;
+export const BRICK_WIDTH = 51;
 export const BRICK_HEIGHT = 32;
 export const BRICK_GAP = 5;
 // Pushed down from the old gray-box value to clear the candy-UI HUD panel
@@ -154,6 +161,12 @@ export const COLOR_PANEL_VIOLET = 0x3d2470;
 export const COLOR_GOLD = 0xf4c95d;
 export const COLOR_GOLD_LIGHT = 0xffe08a;
 export const COLOR_GOLD_DARK = 0xb9852a;
+
+// Every text object uses this. The quoted family comes from index.html's
+// Google Fonts link; the fallbacks matter because a missing webfont
+// silently reverts Phaser to monospace, which is exactly the look this
+// replaced.
+export const FONT_FAMILY = '"Fredoka", "Trebuchet MS", "Segoe UI", sans-serif';
 
 // HUD / UI text colors
 export const TEXT_COLOR_WHITE = "#ffffff";

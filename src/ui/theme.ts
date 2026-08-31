@@ -4,7 +4,15 @@
 // it type-only is what lets theme.test.ts run without a DOM environment
 // (same reasoning as BoosterController.ts).
 import type Phaser from "phaser";
-import { COLOR_GOLD, COLOR_GOLD_LIGHT, COLOR_PANEL_VIOLET, TEXT_COLOR_OUTLINE, TEXT_COLOR_WHITE } from "../constants";
+import {
+  COLOR_GOLD,
+  COLOR_GOLD_DARK,
+  COLOR_GOLD_LIGHT,
+  COLOR_PANEL_VIOLET,
+  FONT_FAMILY,
+  TEXT_COLOR_OUTLINE,
+  TEXT_COLOR_WHITE,
+} from "../constants";
 
 /**
  * Candy-UI building blocks: chunky 3D buttons and rounded HUD panels, drawn
@@ -91,6 +99,7 @@ export const outlinedTextStyle = (
   strokeThickness: number,
   color: string = TEXT_COLOR_WHITE,
 ): Phaser.Types.GameObjects.Text.TextStyle => ({
+  fontFamily: FONT_FAMILY,
   fontSize,
   color,
   fontStyle: "bold",
@@ -351,4 +360,49 @@ export class GlossyButton {
     this.container.setVisible(visible);
     return this;
   }
+}
+
+/**
+ * The playfield frame: a rounded border drawn exactly on the physics world
+ * bounds, with a faint inner wash so the arena reads as a surface rather
+ * than as absence. Drawn behind the bricks.
+ *
+ * Keeping this aligned to the real bounds is the point — a frame that only
+ * looks like a wall, while the ball bounces somewhere else, is worse than
+ * no frame at all.
+ */
+export function paintArena(
+  gfx: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): void {
+  const radius = 18;
+  gfx.clear();
+
+  // Inner surface, a touch lighter than the backdrop behind it. Square at
+  // the bottom because there is no bottom edge — see below.
+  gfx.fillStyle(0xffffff, 0.035);
+  gfx.fillRoundedRect(x, y, width, height, { tl: radius, tr: radius, bl: 0, br: 0 });
+
+  // Left, top and right rails only — deliberately NOT a closed rectangle.
+  // The bottom is where the ball is lost, so drawing a rail across it would
+  // promise a floor that the physics bounds don't have (bottom collision is
+  // off). An open-bottomed arena reads as "this edge is the danger."
+  const railPath = (g: Phaser.GameObjects.Graphics) => {
+    g.beginPath();
+    g.moveTo(x, y + height);
+    g.lineTo(x, y + radius);
+    g.arc(x + radius, y + radius, radius, Math.PI, Math.PI * 1.5);
+    g.lineTo(x + width - radius, y);
+    g.arc(x + width - radius, y + radius, radius, Math.PI * 1.5, Math.PI * 2);
+    g.lineTo(x + width, y + height);
+    g.strokePath();
+  };
+
+  gfx.lineStyle(5, shadeColor(COLOR_PANEL_VIOLET, -0.5), 0.95);
+  railPath(gfx);
+  gfx.lineStyle(2, COLOR_GOLD_DARK, 0.5);
+  railPath(gfx);
 }
