@@ -35,6 +35,21 @@ export async function waitForGameReady(page: Page): Promise<void> {
   await page.waitForFunction(() => Boolean(window.__game));
 }
 
+/**
+ * Waits for the scene to actually reach `state`, rather than sleeping long
+ * enough that it probably has. Anything driven by ball motion crosses a
+ * physics distance, not a wall-clock duration — and Phaser's clock advances
+ * on `requestAnimationFrame`, which browsers throttle hard when several
+ * Playwright workers compete for the machine. A fixed `waitForTimeout` that
+ * passes solo then fails at `--workers=8` is that throttling, not a bug in
+ * the game (see coding-hygiene.md).
+ */
+export async function waitForGameState(page: Page, state: string): Promise<void> {
+  await page.waitForFunction((expected) => window.__game.scene.getScene("prototype").state === expected, state, {
+    timeout: 10_000,
+  });
+}
+
 export async function getActiveSceneKeys(page: Page): Promise<string[]> {
   return page.evaluate(() => window.__game.scene.getScenes(true).map((s: any) => s.scene.key));
 }
@@ -82,6 +97,30 @@ export async function clickCanvasAt(page: Page, gameX: number, gameY: number): P
     return { cssW: r.width, cssH: r.height, gameW: window.__game.scale.width, gameH: window.__game.scale.height };
   });
   await page.mouse.click(box.x + gameX * (cssW / gameW), box.y + gameY * (cssH / gameH));
+}
+
+/**
+ * Clicks the title screen's Play button, deriving its position from the live
+ * canvas rather than hardcoding one. The canvas height depends on the
+ * viewport's aspect (see main.ts's gameHeightForViewport), so a fixed
+ * coordinate silently drifts off the button the moment layout changes.
+ */
+export async function clickPlay(page: Page): Promise<void> {
+  const { x, y } = await page.evaluate(() => ({
+    x: window.__game.scale.width / 2,
+    y: window.__game.scale.height / 2 + 60,
+  }));
+  await clickCanvasAt(page, x, y);
+}
+
+/** Taps in the lower play area to serve — anywhere works, so this just needs
+ * to be inside the canvas at whatever height it currently is. */
+export async function tapToServe(page: Page): Promise<void> {
+  const { x, y } = await page.evaluate(() => ({
+    x: window.__game.scale.width / 2,
+    y: window.__game.scale.height * 0.6,
+  }));
+  await clickCanvasAt(page, x, y);
 }
 
 export async function getPrototypeScene(page: Page): Promise<SceneSnapshot> {

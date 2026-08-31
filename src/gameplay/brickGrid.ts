@@ -8,7 +8,7 @@ import {
   BRICK_TINT_STAR,
   BRICK_TOP,
   BRICK_WIDTH,
-  TEXTURE_KEY_PIXEL,
+  TEXTURE_KEY_TILE,
   TOUGH_BRICK_HITS,
   TOUGH_BRICK_LABEL_COLOR,
   TOUGH_BRICK_ROWS,
@@ -39,7 +39,7 @@ export function buildBrickGrid(scene: Phaser.Scene, bricks: Phaser.Physics.Arcad
       const x = startX + col * (BRICK_WIDTH + BRICK_GAP);
       const y = BRICK_TOP + row * (BRICK_HEIGHT + BRICK_GAP);
 
-      const brick = bricks.create(x, y, TEXTURE_KEY_PIXEL) as Phaser.Physics.Arcade.Image;
+      const brick = bricks.create(x, y, TEXTURE_KEY_TILE) as Phaser.Physics.Arcade.Image;
       brick.setDisplaySize(BRICK_WIDTH, BRICK_HEIGHT);
       brick.setTint(starPowerUp ? BRICK_TINT_STAR : hazard ? POWER_UP_TINTS[hazard] : BRICK_TINT_NORMAL);
       brick.setData("starPowerUp", starPowerUp);

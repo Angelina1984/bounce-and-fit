@@ -4,7 +4,7 @@ import { buildBrickGrid } from "../gameplay/brickGrid";
 import { ballSpeedForLevel, bounceOffsetToAngleRad, velocityFromAngle } from "../gameplayMath";
 import {
   BALL_RADIUS,
-  BALL_SERVE_Y,
+  BALL_SERVE_OFFSET_Y,
   BALL_SPEED,
   BALL_TINT,
   CHALLENGE_SPEED_STEP,
@@ -17,15 +17,21 @@ import {
   PADDLE_HEIGHT,
   PADDLE_TINT,
   PADDLE_WIDTH,
-  PADDLE_Y,
+  PADDLE_BOTTOM_MARGIN,
   POWER_UP_DROP_SPEED,
   SCENE_KEY_PROTOTYPE,
+  POWER_UP_SIZE,
+  TEXTURE_KEY_BALL,
+  TEXTURE_KEY_CHIP,
+  TEXTURE_KEY_PADDLE,
   TEXTURE_KEY_PIXEL,
 } from "../constants";
 import type { GameState } from "../constants";
 import { LEVELS, POWER_UP_TINTS } from "../levelData";
 import type { BoosterType, HazardType } from "../levelData";
 import { Hud } from "./Hud";
+import { addBackdrop, ensureCandyTextures } from "../ui/textures";
+import { brickBurst, catchPop, lifeLostShake, paddleSquash } from "../ui/juice";
 
 // Matches Phaser.Types.Physics.Arcade.ArcadePhysicsCallback's parameter
 // type — collider callbacks receive this union, not a concrete GameObject.
@@ -61,6 +67,11 @@ export class PrototypeScene extends Phaser.Scene {
   private hud!: Hud;
   private foresightGraphics!: Phaser.GameObjects.Graphics;
 
+  // Layout derived from the live canvas height, which depends on the
+  // viewport's aspect (see main.ts) — not fixed constants.
+  private paddleY = 0;
+  private ballServeY = 0;
+
   private livesRemaining = MAX_LIVES;
   private state: GameState = GAME_STATE.SERVING;
   private levelIndex = 0;
@@ -81,10 +92,16 @@ export class PrototypeScene extends Phaser.Scene {
     if (!this.textures.exists(TEXTURE_KEY_PIXEL)) {
       this.textures.generate(TEXTURE_KEY_PIXEL, { data: ["1"], pixelWidth: 1, pixelHeight: 1 });
     }
+    ensureCandyTextures(this);
   }
 
   create(data: PrototypeSceneData = {}): void {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
+
+    this.paddleY = height - PADDLE_BOTTOM_MARGIN;
+    this.ballServeY = this.paddleY - BALL_SERVE_OFFSET_Y;
+
+    addBackdrop(this);
 
     // scene.restart() (from "Tap to retry"/"Next Level"/"Play Again") reuses
     // this same instance rather than reconstructing it, so class-field
@@ -99,7 +116,7 @@ export class PrototypeScene extends Phaser.Scene {
     this.ballSpeed = ballSpeedForLevel(this.levelIndex, BALL_SPEED, CHALLENGE_START_LEVEL_INDEX, CHALLENGE_SPEED_STEP);
 
     this.paddle = this.physics.add
-      .image(width / 2, PADDLE_Y, TEXTURE_KEY_PIXEL)
+      .image(width / 2, this.paddleY, TEXTURE_KEY_PADDLE)
       .setDisplaySize(PADDLE_WIDTH, PADDLE_HEIGHT)
       .setTint(PADDLE_TINT)
       .setImmovable(true);
@@ -126,14 +143,14 @@ export class PrototypeScene extends Phaser.Scene {
     // right physics from the group itself, not from a call that's about to
     // be undone.
     this.balls = this.physics.add.group({ collideWorldBounds: true, bounceX: 1, bounceY: 1 });
-    this.primaryBall = this.createBallSprite(width / 2, BALL_SERVE_Y);
+    this.primaryBall = this.createBallSprite(width / 2, this.ballServeY);
     this.balls.add(this.primaryBall);
     // Recreate any balls beyond the primary that were still in play when the
     // previous level was won (see endLevel()'s "Next Level" handler) — put
     // back in serving formation like a fresh ball, not mid-flight, since
     // every ball's velocity was already zeroed the moment that level ended.
     for (let i = 0; i < (data.extraBallCount ?? 0); i++) {
-      this.balls.add(this.createBallSprite(width / 2, BALL_SERVE_Y));
+      this.balls.add(this.createBallSprite(width / 2, this.ballServeY));
     }
     this.positionBallsForServe();
 
@@ -206,7 +223,7 @@ export class PrototypeScene extends Phaser.Scene {
   }
 
   private createBallSprite(x: number, y: number): Phaser.Physics.Arcade.Image {
-    const ball = this.physics.add.image(x, y, TEXTURE_KEY_PIXEL);
+    const ball = this.physics.add.image(x, y, TEXTURE_KEY_BALL);
     ball.setDisplaySize(BALL_RADIUS * 2, BALL_RADIUS * 2).setTint(BALL_TINT);
     // collideWorldBounds and bounce come from the `balls` group's config
     // (see create()) once this is added there, not from this method — a
@@ -228,7 +245,7 @@ export class PrototypeScene extends Phaser.Scene {
     balls.forEach((ball, i) => {
       const offset = (i - (balls.length - 1) / 2) * spacing;
       ball.setData("serveOffsetX", offset);
-      ball.setPosition(this.paddle.x + offset, BALL_SERVE_Y);
+      ball.setPosition(this.paddle.x + offset, this.ballServeY);
     });
   }
 
@@ -262,7 +279,7 @@ export class PrototypeScene extends Phaser.Scene {
 
   private handlePaddleHit(ballObj: Collided, _paddle: Collided): void {
     // Guards against a phantom hit while the ball is resting on serve
-    // (belt-and-suspenders alongside BALL_SERVE_Y's physical clearance).
+    // (belt-and-suspenders alongside ballServeY's physical clearance).
     if (this.state !== GAME_STATE.PLAYING) return;
 
     const ball = ballObj as Phaser.Physics.Arcade.Image;
@@ -280,7 +297,7 @@ export class PrototypeScene extends Phaser.Scene {
       body.setVelocity(0, 0);
       ball.setData("stuck", true);
       ball.setData("stuckOffsetX", ball.x - this.paddle.x);
-      ball.y = BALL_SERVE_Y; // rest on the paddle, same clearance a serving ball uses
+      ball.y = this.ballServeY; // rest on the paddle, same clearance a serving ball uses
       return;
     }
 
@@ -293,6 +310,7 @@ export class PrototypeScene extends Phaser.Scene {
     const velocity = velocityFromAngle(angle, speed);
     const body = ball.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(velocity.x, velocity.y);
+    paddleSquash(this, this.paddle);
   }
 
   private handleBrickHit(_ball: Collided, brick: Collided): void {
@@ -320,14 +338,15 @@ export class PrototypeScene extends Phaser.Scene {
     // star bricks, so a hazard can never be dodged by simply not catching it
     // (nor mistaken for a positive drop) once you've broken it.
     if (hazard) this.boosters.apply(hazard);
+    brickBurst(this, brickImage.x, brickImage.y, brickImage.tintTopLeft);
     brickImage.destroy();
 
     if (this.bricks.countActive(true) === 0) this.endLevel(GAME_STATE.WON);
   }
 
   private spawnPowerUp(x: number, y: number, type: BoosterType): void {
-    const powerUp = this.powerUps.create(x, y, TEXTURE_KEY_PIXEL) as Phaser.Physics.Arcade.Image;
-    powerUp.setDisplaySize(16, 16).setTint(POWER_UP_TINTS[type]);
+    const powerUp = this.powerUps.create(x, y, TEXTURE_KEY_CHIP) as Phaser.Physics.Arcade.Image;
+    powerUp.setDisplaySize(POWER_UP_SIZE, POWER_UP_SIZE).setTint(POWER_UP_TINTS[type]);
     powerUp.setData("type", type);
     const body = powerUp.body as Phaser.Physics.Arcade.Body;
     body.setAllowGravity(false);
@@ -337,6 +356,7 @@ export class PrototypeScene extends Phaser.Scene {
   private handlePowerUpCatch(_paddle: Collided, powerUp: Collided): void {
     const puImage = powerUp as Phaser.Physics.Arcade.Image;
     const type = puImage.getData("type") as BoosterType;
+    catchPop(this, puImage.x, puImage.y, POWER_UP_TINTS[type]);
     puImage.destroy();
     this.boosters.apply(type);
   }
@@ -357,16 +377,20 @@ export class PrototypeScene extends Phaser.Scene {
     });
   }
 
-  /** Foresight: a dotted preview of each stuck ball's aim, drawn only while
-   * it's actually being aimed (see the "tied to an active aim" scoping
-   * decision) — reflects off the two side walls only, not off individual
-   * bricks, which would need a much heavier raycast against the whole grid. */
-  private drawForesight(stuckBalls: Phaser.Physics.Arcade.Image[]): void {
+  /** Foresight: a dotted preview of a resting ball's aim, drawn at both of
+   * the game's aiming moments — the serve, and a ball held by Catch & Aim.
+   * It deliberately does NOT draw for a ball in flight: this previews a shot
+   * the player is about to choose, not one already taken. (Originally it
+   * drew for Catch & Aim only, which made Foresight invisible unless both
+   * boosters happened to be active at once — see the design brief.)
+   * Reflects off the two side walls only, not off individual bricks, which
+   * would need a much heavier raycast against the whole grid. */
+  private drawForesight(aimingBalls: Phaser.Physics.Arcade.Image[]): void {
     this.foresightGraphics.clear();
-    if (!this.boosters.foresightActive || stuckBalls.length === 0) return;
+    if (!this.boosters.foresightActive || aimingBalls.length === 0) return;
 
     this.foresightGraphics.fillStyle(0xffffff, 0.6);
-    stuckBalls.forEach((ball) => {
+    aimingBalls.forEach((ball) => {
       const offset = (ball.x - this.paddle.x) / (this.paddle.displayWidth / 2);
       const angle = bounceOffsetToAngleRad(offset);
       this.drawTrajectoryDots(ball.x, ball.y, angle);
@@ -398,7 +422,16 @@ export class PrototypeScene extends Phaser.Scene {
   }
 
   update(): void {
-    if (this.state !== GAME_STATE.PLAYING) return;
+    // Foresight also previews the *serve*, which happens in the SERVING
+    // state — so it has to be drawn before the PLAYING-only guard below.
+    if (this.state === GAME_STATE.SERVING) {
+      this.drawForesight(this.balls.getChildren() as Phaser.Physics.Arcade.Image[]);
+      return;
+    }
+    if (this.state !== GAME_STATE.PLAYING) {
+      this.foresightGraphics.clear();
+      return;
+    }
 
     const balls = this.balls.getChildren() as Phaser.Physics.Arcade.Image[];
 
@@ -444,6 +477,7 @@ export class PrototypeScene extends Phaser.Scene {
         this.livesRemaining -= 1;
         this.hud.setLives(this.livesRemaining);
         this.boosters.resetAll();
+        lifeLostShake(this);
         if (this.livesRemaining <= 0) {
           this.endLevel(GAME_STATE.LOST);
         } else {

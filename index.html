@@ -9,7 +9,12 @@
       body {
         margin: 0;
         padding: 0;
-        background: #1b1f2a;
+        /* Mirrors ui/textures.ts's backdrop gradient so the canvas blends
+           into the page instead of showing a visible rectangle where the
+           letterbox begins. Keep the two in sync by hand — same caveat as
+           BACKGROUND_COLOR, there is no build step sharing them. */
+        background: linear-gradient(#3d2075 0%, #2a1454 55%, #1c0d3a 100%);
+        background-attachment: fixed;
         height: 100%;
         overflow: hidden;
       }

@@ -1,18 +1,19 @@
 import { test, expect, type Page } from "@playwright/test";
-import { BALL_SPEED } from "../../src/constants";
+import { BALL_SPEED, GAME_STATE } from "../../src/constants";
 import {
   advanceToLevel,
   catchStarPowerUp,
-  clickCanvasAt,
   getCanvasBox,
   getPrototypeScene,
   waitForGameReady,
+  clickPlay,
+  tapToServe,
 } from "./gameHooks";
 
 async function startGame(page: Page): Promise<void> {
   await page.goto("/");
   await waitForGameReady(page);
-  await clickCanvasAt(page, 240, 460); // Play
+  await clickPlay(page);
   await page.waitForTimeout(200);
 }
 
@@ -71,7 +72,7 @@ test.describe("Catch & Aim (sticky paddle)", () => {
       s.state = "playing";
       s.paddle.x = 240;
       s.primaryBall.x = 240;
-      s.primaryBall.y = 715;
+      s.primaryBall.y = s.paddle.y - 5;
       s.primaryBall.body.setVelocity(0, 300); // driven down into the real paddle collider
     });
     await page.waitForTimeout(150);
@@ -121,7 +122,7 @@ test.describe("Catch & Aim (sticky paddle)", () => {
       s.state = "playing";
       s.paddle.x = 240;
       s.primaryBall.x = 240;
-      s.primaryBall.y = 715;
+      s.primaryBall.y = s.paddle.y - 5;
       s.primaryBall.body.setVelocity(0, 300);
     });
     await page.waitForTimeout(150);
@@ -143,7 +144,7 @@ test.describe("Catch & Aim (sticky paddle)", () => {
     await page.evaluate(() => {
       const s = window.__game.scene.getScene("prototype");
       s.primaryBall.x = s.paddle.x;
-      s.primaryBall.y = 715;
+      s.primaryBall.y = s.paddle.y - 5;
       s.primaryBall.body.setVelocity(0, 300);
     });
     await page.waitForTimeout(150);
@@ -154,7 +155,7 @@ test.describe("Catch & Aim (sticky paddle)", () => {
 });
 
 test.describe("Foresight", () => {
-  test("the aim preview only draws while a ball is stuck and the booster is active", async ({ page }) => {
+  test("during play, the aim preview draws only while a ball is stuck and the booster is active", async ({ page }) => {
     await startGame(page);
 
     // Stuck, but Foresight not yet active — no preview.
@@ -164,7 +165,7 @@ test.describe("Foresight", () => {
       s.state = "playing";
       s.paddle.x = 240;
       s.primaryBall.x = 240;
-      s.primaryBall.y = 715;
+      s.primaryBall.y = s.paddle.y - 5;
       s.primaryBall.body.setVelocity(0, 300);
     });
     await page.waitForTimeout(150);
@@ -189,6 +190,46 @@ test.describe("Foresight", () => {
     const box = await getCanvasBox(page);
     await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.9);
     await page.waitForTimeout(50);
+    commandCount = await page.evaluate(
+      () => window.__game.scene.getScene("prototype").foresightGraphics.commandBuffer.length,
+    );
+    expect(commandCount).toBe(0);
+  });
+
+  test("previews the serve with Foresight alone — Catch & Aim is not required to see it", async ({ page }) => {
+    // Foresight used to draw only for a ball stuck via Catch & Aim, which
+    // made it invisible unless both boosters were active at once — with 6s
+    // and 5s timers, usually never. It now also previews the serve, the
+    // game's other aiming moment. Reported live as "when I collect foresight
+    // I don't see anything."
+    await startGame(page);
+
+    expect(await page.evaluate(() => window.__game.scene.getScene("prototype").state)).toBe(GAME_STATE.SERVING);
+    let commandCount = await page.evaluate(
+      () => window.__game.scene.getScene("prototype").foresightGraphics.commandBuffer.length,
+    );
+    expect(commandCount).toBe(0);
+
+    // Foresight only — no sticky-paddle anywhere in this test.
+    await page.evaluate(() => window.__game.scene.getScene("prototype").boosters.apply("foresight"));
+    await page.waitForTimeout(80);
+
+    const state = await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      return {
+        commandCount: s.foresightGraphics.commandBuffer.length as number,
+        sticky: s.boosters.stickyPaddleActive as boolean,
+        stuck: Boolean(s.primaryBall.getData("stuck")),
+      };
+    });
+    expect(state.sticky).toBe(false);
+    expect(state.stuck).toBe(false);
+    expect(state.commandCount).toBeGreaterThan(0);
+
+    // Launching clears it — a ball in flight is no longer being aimed.
+    const box = await getCanvasBox(page);
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.9);
+    await page.waitForTimeout(100);
     commandCount = await page.evaluate(
       () => window.__game.scene.getScene("prototype").foresightGraphics.commandBuffer.length,
     );
@@ -319,7 +360,7 @@ test.describe("Challenge speed ramp", () => {
   test("serves at the standard speed through level 4, then faster from level 5 on", async ({ page }) => {
     await startGame(page);
 
-    await clickCanvasAt(page, 240, 460); // serve on level 1
+    await tapToServe(page); // serve on level 1
     await page.waitForTimeout(100);
     const level1Speed = await page.evaluate(() => {
       const s = window.__game.scene.getScene("prototype");
@@ -330,7 +371,7 @@ test.describe("Challenge speed ramp", () => {
     await advanceToLevel(page, 4); // level 5, "Burn Through"
     expect((await getPrototypeScene(page)).levelText).toContain("Burn Through");
 
-    await clickCanvasAt(page, 240, 460); // serve on level 5
+    await tapToServe(page); // serve on level 5
     await page.waitForTimeout(100);
     const level5Speed = await page.evaluate(() => {
       const s = window.__game.scene.getScene("prototype");

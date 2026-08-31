@@ -45,3 +45,25 @@ export function ballSpeedForLevel(
   if (challengeLevels <= 0) return baseSpeed;
   return baseSpeed * (1 + challengeLevels * step);
 }
+
+/**
+ * The game's design height for a given viewport, so the canvas matches the
+ * device's aspect ratio instead of letterboxing.
+ *
+ * The width is fixed (everything is laid out against it), so height is what
+ * flexes: a 440x956 phone wants a ~1047-tall canvas to fill the screen,
+ * while a landscape desktop window wants the shortest allowed one. Clamped
+ * at both ends because the layout stops making sense outside that band —
+ * too short and the brick grid crowds the paddle, too tall and the ball
+ * spends its life in empty space.
+ */
+export function gameHeightForViewport(
+  viewportWidth: number,
+  viewportHeight: number,
+  designWidth: number,
+  minHeight: number,
+  maxHeight: number,
+): number {
+  if (viewportWidth <= 0 || viewportHeight <= 0) return minHeight;
+  return Math.round(clamp((designWidth * viewportHeight) / viewportWidth, minHeight, maxHeight));
+}

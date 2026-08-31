@@ -1,16 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import {
-  clickCanvasAt,
-  getCanvasBox,
-  getPrototypeScene,
-  waitForGameReady,
-  waitForNextBrickDestroyed,
-} from "./gameHooks";
+import { getCanvasBox, getPrototypeScene, waitForGameReady, waitForNextBrickDestroyed, clickPlay } from "./gameHooks";
 
 async function startGame(page: Page): Promise<void> {
   await page.goto("/");
   await waitForGameReady(page);
-  await clickCanvasAt(page, 240, 460); // Play
+  await clickPlay(page);
   await page.waitForTimeout(200);
 }
 
@@ -96,7 +90,7 @@ test.describe("Real collision physics", () => {
       // Hit near the paddle's right edge, moving straight down, so a
       // correct bounce must deflect the ball to the right (not straight up).
       s.primaryBall.x = 240 + s.paddle.displayWidth / 2 - 5;
-      s.primaryBall.y = 715;
+      s.primaryBall.y = s.paddle.y - 5;
       s.primaryBall.body.setVelocity(0, 360);
       await new Promise((resolve) => setTimeout(resolve, 300));
       return {

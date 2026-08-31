@@ -1,5 +1,6 @@
 import Phaser from "phaser";
-import { BACKGROUND_COLOR, GAME_HEIGHT, GAME_WIDTH } from "./constants";
+import { BACKGROUND_COLOR, GAME_WIDTH, MAX_GAME_HEIGHT, MIN_GAME_HEIGHT } from "./constants";
+import { gameHeightForViewport } from "./gameplayMath";
 import { TitleScene } from "./scenes/TitleScene";
 import { PrototypeScene } from "./scenes/PrototypeScene";
 
@@ -7,7 +8,12 @@ const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: "app",
   width: GAME_WIDTH,
-  height: GAME_HEIGHT,
+  // Matched to the viewport's aspect so FIT scales it edge-to-edge on a
+  // phone rather than leaving letterbox bands (a 480x800 canvas in a
+  // 440x956 viewport wastes 223px of screen). Read once at boot — the
+  // layout doesn't reflow on rotate/resize, which is fine for a portrait
+  // game, but is the thing to revisit if landscape ever matters.
+  height: gameHeightForViewport(window.innerWidth, window.innerHeight, GAME_WIDTH, MIN_GAME_HEIGHT, MAX_GAME_HEIGHT),
   backgroundColor: BACKGROUND_COLOR,
   physics: {
     default: "arcade",

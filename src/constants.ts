@@ -13,6 +13,13 @@
 export const SCENE_KEY_TITLE = "title";
 export const SCENE_KEY_PROTOTYPE = "prototype";
 export const TEXTURE_KEY_PIXEL = "pixel";
+// Generated at runtime by ui/textures.ts — rounded, beveled, grayscale so
+// every existing setTint() call still colors them correctly.
+export const TEXTURE_KEY_TILE = "candy-tile";
+export const TEXTURE_KEY_PADDLE = "candy-paddle";
+export const TEXTURE_KEY_BALL = "candy-ball";
+export const TEXTURE_KEY_CHIP = "candy-chip";
+export const TEXTURE_KEY_BACKDROP = "candy-backdrop";
 
 // PrototypeScene's state machine. A const object (not just the derived type
 // below) so both source and tests can reference GAME_STATE.PLAYING instead
@@ -25,20 +32,28 @@ export const GAME_STATE = {
 } as const;
 export type GameState = (typeof GAME_STATE)[keyof typeof GAME_STATE];
 
-// Canvas / world
+// Canvas / world. Width is fixed — every layout number below is measured
+// against it. Height is derived from the viewport's aspect at boot (see
+// gameHeightForViewport() and main.ts) so the canvas fills a phone screen
+// instead of letterboxing, and is clamped to the band where this layout
+// still works. GAME_HEIGHT is the fallback/design value.
 export const GAME_WIDTH = 480;
-export const GAME_HEIGHT = 800;
-export const BACKGROUND_COLOR = 0x1b1f2a;
+export const GAME_HEIGHT = 900;
+export const MIN_GAME_HEIGHT = 760;
+export const MAX_GAME_HEIGHT = 1100;
+export const BACKGROUND_COLOR = 0x2a1454;
 
 // Lives — see design brief §3. Catching the ball is free and unlimited;
 // only letting it fall past the paddle costs a life.
 export const MAX_LIVES = 5;
 
-// Paddle
+// Paddle. Its Y is derived from the actual canvas height at create() time
+// (canvas height is viewport-dependent — see above), not a fixed constant:
+// this is how far above the bottom edge it sits.
 export const PADDLE_WIDTH = 90;
 export const PADDLE_HEIGHT = 14;
-export const PADDLE_Y = 720;
-export const PADDLE_TINT = 0xd8d8e0;
+export const PADDLE_BOTTOM_MARGIN = 80;
+export const PADDLE_TINT = 0xe8e4ff;
 
 // Ball
 export const BALL_RADIUS = 8;
@@ -56,12 +71,14 @@ export const CHALLENGE_SPEED_STEP = 0.15;
 // Triple Ball with 3 already in play aims for 6, not a jump-to-3) — this is
 // a generous upper bound on total balls in play, not a target count.
 export const MAX_BALLS = 12;
-// Clear of the paddle body (half paddle height + ball radius + a gap) so
-// the resting ball doesn't overlap it and trigger a phantom collision.
-export const BALL_SERVE_Y = PADDLE_Y - PADDLE_HEIGHT / 2 - BALL_RADIUS - 4;
+// How far above the paddle's center a resting ball sits — clear of the
+// paddle body (half paddle height + ball radius + a gap) so it doesn't
+// overlap and trigger a phantom collision. Applied to the live paddle Y.
+export const BALL_SERVE_OFFSET_Y = PADDLE_HEIGHT / 2 + BALL_RADIUS + 4;
 
 // Power-up drop
 export const POWER_UP_DROP_SPEED = 130;
+export const POWER_UP_SIZE = 16;
 
 // Every booster/hazard duration is real-time now (see the design brief's
 // reconciliation record) — none of them decay by bricks destroyed anymore.
@@ -111,11 +128,13 @@ export const TRIPLE_BALL_SPAWN_COUNT = 3;
 // Brick grid
 export const BRICK_COLS = 8;
 export const BRICK_ROWS = 7;
-export const BRICK_WIDTH = 52;
-export const BRICK_HEIGHT = 24;
-export const BRICK_GAP = 6;
-export const BRICK_TOP = 90;
-export const BRICK_TINT_NORMAL = 0x6c7a96;
+export const BRICK_WIDTH = 54;
+export const BRICK_HEIGHT = 32;
+export const BRICK_GAP = 5;
+// Pushed down from the old gray-box value to clear the candy-UI HUD panel
+// in the top-left corner (see Hud.ts's corner pill).
+export const BRICK_TOP = 132;
+export const BRICK_TINT_NORMAL = 0x8fa4e8;
 export const BRICK_TINT_STAR = 0xf4c95d;
 
 // Tough bricks — the top N rows of every level need multiple hits to
@@ -124,13 +143,20 @@ export const TOUGH_BRICK_ROWS = 1;
 export const TOUGH_BRICK_HITS = 2;
 export const TOUGH_BRICK_LABEL_COLOR = "#1b1f2a";
 
+// Candy UI palette — deep violet + warm gold, for the pill badges and
+// glossy buttons built in ui/theme.ts. Scoped to HUD/title chrome for now;
+// bricks/paddle/ball tints below are a later pass — see the design brief's
+// "Prototype to Polish" reconciliation record.
+export const COLOR_PANEL_VIOLET = 0x3d2470;
+export const COLOR_GOLD = 0xf4c95d;
+export const COLOR_GOLD_LIGHT = 0xffe08a;
+export const COLOR_GOLD_DARK = 0xb9852a;
+
 // HUD / UI text colors
 export const TEXT_COLOR_WHITE = "#ffffff";
-export const TEXT_COLOR_MUTED = "#9aa5b8";
-export const TEXT_COLOR_ACCENT = "#8fd3ff";
-export const TEXT_COLOR_ACCENT_HOVER = "#a8dfff";
+export const TEXT_COLOR_MUTED = "#c9b8ea";
 export const TEXT_COLOR_GOLD = "#f4c95d";
-// Dark text sitting on an accent-colored button background (the Play
-// button) — matches BACKGROUND_COLOR's hex, but named for what it's used
-// for rather than tied to that constant, since the two could diverge.
-export const TEXT_COLOR_ON_ACCENT = "#1b1f2a";
+// Dark violet outline stroke for bold text sitting on busy/bright
+// backgrounds (pill badges, glossy buttons) — matches BACKGROUND_COLOR's
+// hue rather than its exact hex, since the two could diverge.
+export const TEXT_COLOR_OUTLINE = "#241242";

@@ -4,17 +4,18 @@ import {
   advanceToLevel,
   catchStarPowerUp,
   clickActionButton,
-  clickCanvasAt,
   getPrototypeScene,
   triggerHazardBrick,
   waitForGameReady,
   winCurrentLevel,
+  clickPlay,
+  tapToServe,
 } from "./gameHooks";
 
 async function startGame(page: Page): Promise<void> {
   await page.goto("/");
   await waitForGameReady(page);
-  await clickCanvasAt(page, 240, 460); // Play
+  await clickPlay(page);
   await page.waitForTimeout(200);
 }
 
@@ -248,7 +249,7 @@ test.describe("Level progression", () => {
 
     // Physical consequence, not just the flag: a real serve in the new
     // level must actually move at the standard speed.
-    await clickCanvasAt(page, 240, 460);
+    await clickPlay(page);
     await page.waitForTimeout(100);
     const speed = await page.evaluate(() => {
       const s = window.__game.scene.getScene("prototype");
@@ -296,7 +297,7 @@ test.describe("Level progression", () => {
     );
     expect(new Set(positions).size).toBe(2);
 
-    await clickCanvasAt(page, 240, 460); // tap to serve
+    await tapToServe(page);
     await page.waitForTimeout(100);
     const velocities = await page.evaluate(() =>
       window.__game.scene

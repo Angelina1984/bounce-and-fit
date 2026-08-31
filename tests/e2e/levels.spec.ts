@@ -1,18 +1,18 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
   advanceToLevel,
-  clickCanvasAt,
   dropAndCatchPowerUp,
   getCanvasBox,
   getPrototypeScene,
   triggerHazardBrick,
   waitForGameReady,
+  clickPlay,
 } from "./gameHooks";
 
 async function startGame(page: Page): Promise<void> {
   await page.goto("/");
   await waitForGameReady(page);
-  await clickCanvasAt(page, 240, 460); // Play
+  await clickPlay(page);
   await page.waitForTimeout(200);
 }
 

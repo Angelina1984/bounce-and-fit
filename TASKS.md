@@ -397,10 +397,166 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       untouched, every ball in the group rescaled — not just the primary
       one) plus a manual verification confirming the real in-browser speed
       actually changes the instant the booster is caught.
+- [x] **All boosters converted to real-time timers; carry-over removed**
+      (Aug 30, 2026). Following the Slow Ball timer fix above, converted the
+      last five hit-based boosters (Wide Paddle, Big Ball, Burning Ball,
+      Catch & Aim, Foresight) to the same `scene.time.delayedCall` pattern —
+      durations translated from their old bricks-destroyed budgets (Wide
+      Paddle 8s, Big Ball 6s, Burning Ball 5s, Catch & Aim 5s, Foresight
+      6s). `BoosterController` lost its entire hit-based-decay bucket
+      (`HitBasedBuff`, `hitBuffCounters`, `onBrickDestroyed()`, `revert()`)
+      in favor of 8 timer fields, one per timed effect. Since every timed
+      effect is now real-time and none can survive `scene.restart()`, the
+      cross-level carry-over mechanism (`getCarrySnapshot`/`applySnapshot`,
+      `PrototypeSceneData.boosterSnapshot`) became fully dead code and was
+      deleted rather than left unused — no booster or hazard carries into
+      "Next Level" anymore, only Extra Ball's already-spawned balls do.
+      Rewrote `BoosterController.test.ts` (fake-timer apply/revert coverage
+      per effect, replacing the hit-count tests) and
+      `boosters-and-levels.spec.ts` (removed a flaky real-time
+      `page.waitForTimeout` E2E assertion in favor of the existing unit-test
+      coverage — Phaser's clock is rAF-driven and unreliable to wall-clock
+      wait on under parallel Playwright load; inverted the carry-over test
+      to assert nothing carries, fixing a hazard-brick-ordering issue along
+      the way). Design brief (`bounce_and_fit_design_brief.md`) and
+      `coding-hygiene.md` updated to match.
 - [x] **CI workflow** (Aug 30, 2026). Added a GitHub Actions workflow
       (`.github/workflows/ci.yml`) that triggers on every push and PR to
       run `npm test` (including typecheck, linting, formatting, unit tests,
       and Playwright E2E tests).
+
+- [x] **Candy UI, pass 1 — HUD and title chrome** (Aug 30, 2026). First
+      slice of the prototype-to-polish transition, deliberately scoped to UI
+      chrome before gameplay sprites: the palette and components get proven
+      on text and rectangles, where nothing can break collision or booster
+      readability, and the bricks/paddle/ball pass then reuses them instead
+      of re-deriving the palette. New `src/ui/theme.ts` holds the whole
+      vocabulary — `outlinedTextStyle()` (bold white, dark-violet stroke,
+      drop shadow), `paintPillBackground()`, `paintGlossyButtonBackground()`
+      (gold gradient-ish top gloss + border + shadow), plus `PillBadge` and
+      `GlossyButton` container classes for callers that want a whole
+      component. Palette moved from the old slate/ice-blue to deep violet
+      (`BACKGROUND_COLOR` `0x1b1f2a` → `0x2a1454`, kept in sync with
+      `index.html`'s CSS by hand as that file's comment requires) plus warm
+      gold. `TitleScene` now uses a real `GlossyButton`; `Hud` keeps its
+      public `Phaser.GameObjects.Text` fields (so `gameHooks.ts`'s E2E
+      snapshots keep reading `.text`/`.visible`/`.x`/`.y` unchanged) and
+      layers rounded-panel/glossy-button Graphics companions behind them,
+      redrawn from each text's own bounds. `BRICK_TOP` 90 → 116 so the grid
+      clears the new corner panel. Verified by screenshotting the title,
+      in-level HUD, and win state in a real browser, not just by the suite
+      passing. Also added `.claude/settings.local.json` and
+      `scheduled_tasks.lock` to `.prettierignore` — machine-local,
+      git-ignored state that was failing `format:check` on local churn.
+- [x] **Candy UI, pass 1b — high-fidelity button/panel rendering** (Aug 30,
+      2026). The first pass's flat two-tone button read as cheap, so
+      `theme.ts`'s paint functions were rewritten for real depth. Each
+      button is now a four-layer sandwich: an oversized dark shape filled
+      _behind_ everything as the outline (filling one union shape avoids the
+      seam that stroking each layer separately leaves), a darkened and
+      desaturated platform, the vibrant face lifted `BUTTON_DEPTH` px off
+      it, and a 2px bright interior stroke. Gloss is stacked translucent
+      white capsules of decreasing width — Phaser Graphics has no gradient
+      fill — plus a specular dot in the upper-left curve. All tones derive
+      from one base color through new pure `shadeColor()`/`desaturateColor()`
+      helpers rather than being hand-picked, so restyling is a one-constant
+      change. Added `squashButton()`/`popButton()` (scaleX 1.05 / scaleY
+      0.95, `Expo.easeOut`) and wired both the title button and the HUD
+      action button to them; `Hud`'s button Graphics moved to the button's
+      own center with shapes drawn in local coordinates so scale tweens
+      pivot correctly, and it tweens text + background together so the label
+      can't slide off its face. `theme.ts`'s Phaser import is now type-only,
+      which is what lets the new `theme.test.ts` (11 cases over the two
+      color helpers) run under plain Vitest. Tuned by screenshotting the
+      real render three times: the first attempt's gloss alphas summed to
+      near-white, and the outline was thick enough to swallow the platform
+      and flatten the button back out.
+
+- [x] **Candy UI, pass 2 — rounded, beveled gameplay sprites** (Aug 30,
+      2026). Bricks, paddle, balls, and power-up drops were all the same 1x1
+      `pixel` texture stretched to a hard-edged rectangle. New
+      `src/ui/textures.ts` generates rounded, beveled textures at runtime
+      with `Graphics.generateTexture()` — a tile (bricks), a full pill
+      (paddle), and an orb (balls, power-up drops). Each bakes the same
+      outline → platform → face → gloss layering as `theme.ts`'s buttons, so
+      a brick and a button read as the same material at different scales.
+      **Drawn in grayscale on purpose:** every caller already colors these
+      via `setTint()`, which multiplies, so one generated tile serves the
+      whole brick palette with its highlight and shadow landing correctly
+      under any tint — no per-color texture, and not one call site's tint
+      logic had to change. Generated at 3x and scaled down, since a rounded
+      corner rasterized at 1x on a 24px brick is visibly jagged. Palette
+      warmed to suit the violet ground (`BRICK_TINT_NORMAL` slate →
+      periwinkle, `PADDLE_TINT` gray → pale lavender). Verified by
+      screenshotting the real grid, paddle, ball, and falling drops.
+- [x] **Fixed a flaky test: core-loop's "running out of lives"** (Aug 30,
+      2026). Failed twice at 8 workers (`state` still `"playing"`) while
+      passing at `--workers=1`. Not a regression — it waited a fixed 600ms
+      of wall-clock for a rAF-driven ball to fall, and rAF is throttled hard
+      when workers compete for the machine, so less simulated time passes
+      than the sleep assumes. Same root cause as the Wide Paddle timer
+      assertion removed earlier. Fixed properly rather than by raising the
+      sleep: new `waitForGameState()` helper in `gameHooks.ts` polls for the
+      state the scene actually reaches. Two consecutive clean 8-worker runs
+      after. Worth reusing anywhere else a fixed timeout stands in for "the
+      ball got there."
+- [x] **Foresight now previews the serve, not just Catch & Aim** (Aug 30,
+      2026). Reported live: "when I collect foresight I don't see anything."
+      Confirmed by reading the code rather than guessing — `drawForesight()`
+      bailed unless a ball was stuck, and only Catch & Aim sticks one, so
+      catching Foresight alone drew nothing _ever_. With 6s and 5s timers
+      the two boosters had to be caught within seconds of each other for it
+      to render at all, so in practice it read as broken. Now it draws at
+      both of the game's aiming moments — the serve and a held ball — and
+      still deliberately not for a ball in flight, since it previews a shot
+      the player is _about to choose_. Needed a second entry point in
+      `update()`, which returns early during SERVING. New E2E test catches
+      the regression by construction (it never applies Catch & Aim at all);
+      the existing test was renamed to scope it to the in-play case.
+- [x] **Candy UI, pass 3 — juice** (Aug 30, 2026). New `src/ui/juice.ts`:
+      particle burst in the destroyed brick's own tint, paddle squash on
+      ball contact, expanding ring on power-up catch, camera shake on life
+      lost (reserved for that alone, so it stays meaningful). Every effect
+      is fire-and-forget and touches no physics or game state, so callers
+      can drop one into a collision handler without changing what it does —
+      if an effect ever needs awaiting or cancelling, it doesn't belong
+      there. `paddleSquash()` tweens displayWidth/Height rather than scale
+      on purpose: paddle width is owned by `BoosterController` (Wide/Narrow
+      Paddle) and a scale tween would fight it, with whichever wrote last
+      winning.
+
+- [x] **Responsive canvas — fixed the letterbox and the visible "walls"**
+      (Aug 30, 2026). Reported live from real screenshots: on an iPhone-sized
+      viewport the game left 223px of dead space (a fixed 480x800 canvas FIT
+      into a 440x956 viewport scales to 440x733), and on desktop the play
+      field's boundary was plainly visible as a rectangle. Fixed by deriving
+      the canvas height from the viewport's aspect at boot — new pure
+      `gameHeightForViewport()` in `gameplayMath.ts`, clamped to the band
+      where this layout still works (760-1100), unit-tested including the
+      degenerate 0x0 case. `PADDLE_Y` and `BALL_SERVE_Y` stopped being
+      constants and are now derived from the live canvas height in
+      `create()` (`PADDLE_BOTTOM_MARGIN`/`BALL_SERVE_OFFSET_Y` replace them).
+      The canvas now fills a 440x956 viewport exactly, top offset 0. The
+      visible boundary was the backdrop's vignette darkening the canvas edge
+      against a flat page background: weakened the vignette and gave
+      `index.html` the same gradient, so the two blend at the seam.
+- [x] **Grid density and backdrop** (Aug 30, 2026). Tiles read as small and
+      far apart — partly real gaps, partly the baked outline eating each
+      brick's visible face. Gap 6→5 but bricks 52x24→54x32 and the texture's
+      baked outline thinned (2→1.5 subpixels), so the colored faces grew
+      while the space between them shrank; grid now fills the width
+      edge-to-edge. Added a real gradient backdrop with a soft vignette —
+      `textures.createCanvas()` exposes a 2D context, so `createLinearGradient`
+      genuinely works there, unlike Graphics (this is the one place in the
+      codebase that isn't faking a gradient with stacked translucent shapes).
+- [x] **E2E tests stopped hardcoding layout coordinates** (Aug 30, 2026).
+      Ten call sites clicked a literal `(240, 460)` for Play and set
+      `primaryBall.y = 715` for "just above the paddle" — all silently tied
+      to the old fixed 480x800 layout, and all would have drifted off-target
+      the moment the canvas became viewport-dependent. Replaced with
+      `clickPlay()`/`tapToServe()` helpers that read the live canvas, and
+      paddle-relative ball placement (`s.paddle.y - 5`). The layout can now
+      change without touching a single test.
 
 ## Backlog
 

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ballSpeedForLevel, bounceOffsetToAngleRad, clamp, degToRad, velocityFromAngle } from "./gameplayMath";
+import {
+  ballSpeedForLevel,
+  gameHeightForViewport,
+  bounceOffsetToAngleRad,
+  clamp,
+  degToRad,
+  velocityFromAngle,
+} from "./gameplayMath";
 
 describe("bounceOffsetToAngleRad", () => {
   it("returns straight up (-90deg) for a dead-center hit", () => {
@@ -70,5 +77,26 @@ describe("clamp", () => {
 
   it("clamps to the upper bound", () => {
     expect(clamp(15, 0, 10)).toBe(10);
+  });
+});
+
+describe("gameHeightForViewport", () => {
+  // The point of this is filling a phone screen instead of letterboxing:
+  // a 480-wide canvas in a 440x956 viewport needs to be ~1043 tall, not 800.
+  it("matches the viewport's aspect ratio at the design width", () => {
+    expect(gameHeightForViewport(440, 956, 480, 700, 1100)).toBe(1043);
+  });
+
+  it("clamps tall/narrow viewports to the max height", () => {
+    expect(gameHeightForViewport(300, 2000, 480, 700, 1100)).toBe(1100);
+  });
+
+  it("clamps short/wide viewports (a landscape desktop window) to the min", () => {
+    expect(gameHeightForViewport(1920, 900, 480, 700, 1100)).toBe(700);
+  });
+
+  it("returns a usable height rather than 0 or NaN for a degenerate viewport", () => {
+    expect(gameHeightForViewport(0, 0, 480, 700, 1100)).toBe(700);
+    expect(gameHeightForViewport(-10, 500, 480, 700, 1100)).toBe(700);
   });
 });

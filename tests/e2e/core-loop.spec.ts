@@ -2,17 +2,18 @@ import { test, expect, type Page } from "@playwright/test";
 import { GAME_STATE } from "../../src/constants";
 import {
   clickActionButton,
-  clickCanvasAt,
+  waitForGameState,
   getCanvasBox,
   getPrototypeScene,
   waitForGameReady,
   winCurrentLevel,
+  clickPlay,
 } from "./gameHooks";
 
 async function startGame(page: Page): Promise<void> {
   await page.goto("/");
   await waitForGameReady(page);
-  await clickCanvasAt(page, 240, 460); // Play
+  await clickPlay(page);
   await page.waitForTimeout(200);
 }
 
@@ -88,10 +89,10 @@ test.describe("Core loop", () => {
       s.state = "playing";
       s.paddle.x = 50; // out of the way, so the ball genuinely misses
       s.primaryBall.x = 400;
-      s.primaryBall.y = 690;
+      s.primaryBall.y = s.paddle.y - 30;
       s.primaryBall.body.setVelocity(0, 500);
     });
-    await page.waitForTimeout(600);
+    await waitForGameState(page, GAME_STATE.LOST);
 
     let state = await getPrototypeScene(page);
     expect(state.state).toBe(GAME_STATE.LOST);
