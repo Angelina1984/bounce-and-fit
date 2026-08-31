@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BRICK_COLS, BRICK_ROWS } from "./constants";
+import { BRICK_COLS, BRICK_ROWS, MAX_BRICK_HITS } from "./constants";
 import { LEVELS, validateLevels } from "./levelData";
 import type { LevelDef } from "./levelData";
 
@@ -10,7 +10,13 @@ describe("validateLevels", () => {
 
   it("flags a star brick placed outside the grid", () => {
     const levels: LevelDef[] = [
-      { name: "Bad", starBricks: [{ row: 0, col: 99, powerUp: "wide-paddle" }], hazardBricks: [], skip: [] },
+      {
+        name: "Bad",
+        starBricks: [{ row: 0, col: 99, powerUp: "wide-paddle" }],
+        hazardBricks: [],
+        toughBricks: [],
+        skip: [],
+      },
     ];
     const issues = validateLevels(levels, BRICK_COLS, BRICK_ROWS);
     expect(issues).toHaveLength(1);
@@ -23,6 +29,7 @@ describe("validateLevels", () => {
         name: "Overlap",
         starBricks: [{ row: 1, col: 1, powerUp: "wide-paddle" }],
         hazardBricks: [{ row: 1, col: 1, hazard: "freeze-paddle" }],
+        toughBricks: [],
         skip: [],
       },
     ];
@@ -37,6 +44,7 @@ describe("validateLevels", () => {
         name: "Skip clash",
         starBricks: [{ row: 2, col: 2, powerUp: "big-ball" }],
         hazardBricks: [],
+        toughBricks: [],
         skip: [[2, 2]],
       },
     ];
@@ -55,6 +63,7 @@ describe("validateLevels", () => {
           { row: 1, col: 2, powerUp: "big-ball" },
         ],
         hazardBricks: [],
+        toughBricks: [],
         skip: [],
       },
     ];
@@ -71,6 +80,7 @@ describe("validateLevels", () => {
           { row: 1, col: 1, powerUp: "slow-ball" },
         ],
         hazardBricks: [],
+        toughBricks: [],
         skip: [],
       },
     ];
@@ -86,24 +96,12 @@ describe("validateLevels", () => {
           { row: 1, col: 0, hazard: "narrow-paddle" },
           { row: 1, col: 1, hazard: "freeze-paddle" },
         ],
+        toughBricks: [],
         skip: [],
       },
     ];
     const issues = validateLevels(levels, BRICK_COLS, BRICK_ROWS, 8, 1);
     expect(issues.some((i) => i.message.includes("hazard bricks exceeds the max"))).toBe(true);
-  });
-
-  it("flags a star or hazard brick placed on a tough-brick row", () => {
-    const levels: LevelDef[] = [
-      {
-        name: "Tough row clash",
-        starBricks: [{ row: 0, col: 0, powerUp: "wide-paddle" }],
-        hazardBricks: [{ row: 0, col: 1, hazard: "freeze-paddle" }],
-        skip: [],
-      },
-    ];
-    const issues = validateLevels(levels, BRICK_COLS, BRICK_ROWS, 8, 4, 1);
-    expect(issues.filter((i) => i.message.includes("tough-brick row"))).toHaveLength(2);
   });
 });
 
@@ -127,5 +125,56 @@ describe("LEVELS content", () => {
 
   it("keeps Paddle Cut (narrow-paddle) available from level 1", () => {
     expect(LEVELS[0].hazardBricks.some((h) => h.hazard === "narrow-paddle")).toBe(true);
+  });
+
+  it("flags a star brick landing on a tough brick — a star must never need 2 hits to trigger", () => {
+    const levels: LevelDef[] = [
+      {
+        name: "Star on tough",
+        starBricks: [{ row: 2, col: 3, powerUp: "wide-paddle" }],
+        hazardBricks: [],
+        toughBricks: [{ row: 2, col: 3, hits: 2 }],
+        skip: [],
+      },
+    ];
+    const issues = validateLevels(levels, BRICK_COLS, BRICK_ROWS);
+    expect(issues).toHaveLength(1);
+    expect(issues[0].message).toMatch(/collides with tough brick/);
+  });
+
+  it("flags a tough brick with a hit count outside the supported shades", () => {
+    const levels: LevelDef[] = [
+      {
+        name: "Too tough",
+        starBricks: [],
+        hazardBricks: [],
+        // 1 would be an ordinary brick; 9 has no shade to render it with.
+        toughBricks: [
+          { row: 1, col: 1, hits: 1 },
+          { row: 1, col: 2, hits: 9 },
+        ],
+        skip: [],
+      },
+    ];
+    const issues = validateLevels(levels, BRICK_COLS, BRICK_ROWS);
+    expect(issues).toHaveLength(2);
+    expect(issues[0].message).toMatch(/outside the supported 2\.\./);
+  });
+
+  it("flags a tough brick placed outside the grid", () => {
+    const levels: LevelDef[] = [
+      { name: "Bad tough", starBricks: [], hazardBricks: [], toughBricks: [{ row: 99, col: 0, hits: 2 }], skip: [] },
+    ];
+    const issues = validateLevels(levels, BRICK_COLS, BRICK_ROWS);
+    expect(issues.some((i) => /outside the/.test(i.message))).toBe(true);
+  });
+
+  it("every shipped level's tough bricks stay within the supported shade range", () => {
+    for (const level of LEVELS) {
+      for (const t of level.toughBricks) {
+        expect(t.hits).toBeGreaterThanOrEqual(2);
+        expect(t.hits).toBeLessThanOrEqual(MAX_BRICK_HITS);
+      }
+    }
   });
 });

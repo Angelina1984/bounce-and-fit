@@ -558,6 +558,29 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       paddle-relative ball placement (`s.paddle.y - 5`). The layout can now
       change without touching a single test.
 
+- [x] **Tough bricks: shade replaces the number, and they scatter** (Aug 30,
+      2026). Every brick was the same light blue with a digit printed inside
+      the multi-hit ones. Now a brick's hit count _is_ its shade — darker
+      means more hits left, and each hit re-tints it one step lighter, so a
+      3-hit brick visibly becomes a 2-hit brick and then an ordinary one.
+      No number to read. Shades live in `BRICK_TINTS_BY_HITS`, indexed by
+      hits-remaining minus one, with `MAX_BRICK_HITS` derived from its
+      length — supporting a 4-hit brick is adding one hex value.
+      `TOUGH_BRICK_ROWS`/`TOUGH_BRICK_HITS`/`TOUGH_BRICK_LABEL_COLOR` and the
+      label GameObject are all gone. Tough bricks also stopped being "the top
+      row": `LevelDef` gained a `toughBricks: {row, col, hits}[]` list,
+      hand-placed and scattered through all six levels (7 per level, mixing
+      2- and 3-hit). `validateLevels()` now claims tough cells first, so a
+      star/hazard landing on one is caught as a cell collision — preserving
+      the §3 rule that a star/hazard never needs two hits to trigger, which
+      the old "row 0 is reserved" check enforced positionally. New unit
+      coverage for out-of-range hit counts, out-of-grid placement,
+      star-on-tough collision, and every shipped level's tough bricks; the
+      E2E test was rewritten to assert the _tint actually changes per hit_
+      and that a fully-worn brick matches an ordinary brick's tint exactly —
+      the shade is the only feedback now, so asserting the data value alone
+      would miss the whole point.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

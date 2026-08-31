@@ -5,6 +5,7 @@ import { ballSpeedForLevel, bounceOffsetToAngleRad, velocityFromAngle } from "..
 import {
   BALL_RADIUS,
   BALL_SERVE_OFFSET_Y,
+  BRICK_TINTS_BY_HITS,
   BALL_SPEED,
   BALL_TINT,
   CHALLENGE_SPEED_STEP,
@@ -316,19 +317,19 @@ export class PrototypeScene extends Phaser.Scene {
   private handleBrickHit(_ball: Collided, brick: Collided): void {
     const brickImage = brick as Phaser.Physics.Arcade.Image;
 
-    // Tough bricks (top row, see buildBrickGrid) take more than one hit —
-    // decrement and update the numbered label, but don't actually destroy
-    // it (no star/hazard trigger, no win-check) until the hit that brings
-    // it to 0. An ordinary brick has no "hitsRemaining" data at all, so
-    // this never runs for it.
+    // Tough bricks (scattered per level, see buildBrickGrid) take more than
+    // one hit — decrement and re-tint one shade lighter, but don't actually
+    // destroy it (no star/hazard trigger, no win-check) until the hit that
+    // brings it to 1. The shade IS the hit-count readout, so this is the
+    // only feedback the player gets and it has to happen here. An ordinary
+    // brick has no "hitsRemaining" data at all, so this never runs for it.
     const hitsRemaining = brickImage.getData("hitsRemaining") as number | undefined;
     if (hitsRemaining !== undefined && hitsRemaining > 1) {
-      brickImage.setData("hitsRemaining", hitsRemaining - 1);
-      const label = brickImage.getData("hitsLabel") as Phaser.GameObjects.Text | undefined;
-      label?.setText(String(hitsRemaining - 1));
+      const left = hitsRemaining - 1;
+      brickImage.setData("hitsRemaining", left);
+      brickImage.setTint(BRICK_TINTS_BY_HITS[left - 1]);
       return;
     }
-    (brickImage.getData("hitsLabel") as Phaser.GameObjects.Text | undefined)?.destroy();
 
     const starPowerUp = brickImage.getData("starPowerUp") as BoosterType | undefined;
     const hazard = brickImage.getData("hazard") as HazardType | undefined;

@@ -134,14 +134,17 @@ export const BRICK_GAP = 5;
 // Pushed down from the old gray-box value to clear the candy-UI HUD panel
 // in the top-left corner (see Hud.ts's corner pill).
 export const BRICK_TOP = 132;
-export const BRICK_TINT_NORMAL = 0x8fa4e8;
 export const BRICK_TINT_STAR = 0xf4c95d;
 
-// Tough bricks — the top N rows of every level need multiple hits to
-// destroy (a structural brick property, not a catchable booster).
-export const TOUGH_BRICK_ROWS = 1;
-export const TOUGH_BRICK_HITS = 2;
-export const TOUGH_BRICK_LABEL_COLOR = "#1b1f2a";
+// Tough bricks — how many hits a brick takes, read off its shade rather
+// than a number printed inside it. Indexed by hits remaining minus one, so
+// index 0 is an ordinary one-hit brick and darker means more hits left.
+// Each hit re-tints the brick one step lighter, so it visibly wears down
+// toward an ordinary brick and the player never has to read a digit.
+// Adding a shade here is all it takes to support a 4-hit brick.
+export const BRICK_TINTS_BY_HITS = [0x8fa4e8, 0x4b62c4, 0x27317f] as const;
+export const MAX_BRICK_HITS = BRICK_TINTS_BY_HITS.length;
+export const BRICK_TINT_NORMAL = BRICK_TINTS_BY_HITS[0];
 
 // Candy UI palette — deep violet + warm gold, for the pill badges and
 // glossy buttons built in ui/theme.ts. Scoped to HUD/title chrome for now;

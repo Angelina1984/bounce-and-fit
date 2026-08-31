@@ -4,7 +4,7 @@
  * live in a browser.
  */
 
-import { BRICK_COLS, BRICK_ROWS, TOUGH_BRICK_ROWS } from "./constants";
+import { BRICK_COLS, BRICK_ROWS, MAX_BRICK_HITS } from "./constants";
 
 // Boosters live on star bricks and are always positive — catching one is
 // optional and never required to clear a level. Hazards live on a separate,
@@ -64,21 +64,31 @@ export interface HazardBrickDef {
   hazard: HazardType;
 }
 
+export interface ToughBrickDef {
+  row: number;
+  col: number;
+  /** Total hits to destroy (2..MAX_BRICK_HITS). Drawn as a shade, not a number. */
+  hits: number;
+}
+
 export interface LevelDef {
   name: string;
   starBricks: StarBrickDef[];
   hazardBricks: HazardBrickDef[];
+  /** Multi-hit bricks, scattered anywhere in the grid — no longer a
+   * reserved top row. Never shares a cell with a star or hazard. */
+  toughBricks: ToughBrickDef[];
   // [row, col] pairs to leave empty, for a level-specific brick shape.
   skip: Array<[number, number]>;
 }
 
 // Every level now draws from the whole catalog from the start (the
 // original "one new booster taught per level" progression rule was dropped
-// — see the design brief's reconciliation record). Row 0 is reserved for
-// tough bricks (see TOUGH_BRICK_ROWS/brickGrid.ts) and deliberately never
-// carries a star/hazard, so a "tough" brick's extra hit is a purely
-// structural property, independent of the catch mechanic — no star/hazard
-// ever needs 2 hits to actually trigger. Each level rotates out exactly one
+// — see the design brief's reconciliation record). Tough (multi-hit) bricks
+// are scattered per level rather than filling a reserved top row, and still
+// deliberately never carry a star/hazard, so a "tough" brick's extra hits
+// stay a purely structural property, independent of the catch mechanic —
+// no star/hazard ever needs 2 hits to actually trigger. Each level rotates out exactly one
 // of the original 7 boosters (never a hazard), plus Double Ball and Triple
 // Ball are added to every level unconditionally (not part of the rotation —
 // the user asked for one of each per level, every level) — 8 star bricks
@@ -101,6 +111,15 @@ export const LEVELS: LevelDef[] = [
       { row: 6, col: 5, powerUp: "triple-ball" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
+    toughBricks: [
+      { row: 0, col: 1, hits: 2 },
+      { row: 0, col: 6, hits: 2 },
+      { row: 0, col: 3, hits: 3 },
+      { row: 2, col: 0, hits: 2 },
+      { row: 3, col: 3, hits: 3 },
+      { row: 4, col: 6, hits: 2 },
+      { row: 5, col: 4, hits: 2 },
+    ],
     skip: [],
   },
   {
@@ -116,6 +135,15 @@ export const LEVELS: LevelDef[] = [
       { row: 6, col: 5, powerUp: "triple-ball" },
     ],
     hazardBricks: [{ row: 5, col: 0, hazard: "narrow-paddle" }],
+    toughBricks: [
+      { row: 0, col: 2, hits: 2 },
+      { row: 0, col: 5, hits: 2 },
+      { row: 0, col: 7, hits: 3 },
+      { row: 3, col: 0, hits: 2 },
+      { row: 3, col: 6, hits: 3 },
+      { row: 4, col: 7, hits: 2 },
+      { row: 5, col: 3, hits: 2 },
+    ],
     skip: [
       [1, 3],
       [1, 4],
@@ -136,6 +164,15 @@ export const LEVELS: LevelDef[] = [
       { row: 6, col: 5, powerUp: "triple-ball" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
+    toughBricks: [
+      { row: 0, col: 0, hits: 2 },
+      { row: 0, col: 3, hits: 2 },
+      { row: 0, col: 5, hits: 3 },
+      { row: 2, col: 4, hits: 2 },
+      { row: 3, col: 3, hits: 3 },
+      { row: 4, col: 0, hits: 2 },
+      { row: 5, col: 5, hits: 2 },
+    ],
     skip: [
       [0, 6],
       [0, 7],
@@ -155,6 +192,15 @@ export const LEVELS: LevelDef[] = [
       { row: 6, col: 5, powerUp: "triple-ball" },
     ],
     hazardBricks: [{ row: 5, col: 2, hazard: "narrow-paddle" }],
+    toughBricks: [
+      { row: 0, col: 1, hits: 2 },
+      { row: 0, col: 4, hits: 2 },
+      { row: 0, col: 6, hits: 3 },
+      { row: 2, col: 5, hits: 2 },
+      { row: 3, col: 2, hits: 3 },
+      { row: 4, col: 3, hits: 2 },
+      { row: 5, col: 6, hits: 2 },
+    ],
     skip: [
       [2, 0],
       [3, 0],
@@ -179,6 +225,15 @@ export const LEVELS: LevelDef[] = [
       { row: 6, col: 5, powerUp: "triple-ball" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
+    toughBricks: [
+      { row: 0, col: 2, hits: 2 },
+      { row: 0, col: 5, hits: 2 },
+      { row: 0, col: 7, hits: 3 },
+      { row: 2, col: 0, hits: 2 },
+      { row: 3, col: 7, hits: 3 },
+      { row: 4, col: 6, hits: 2 },
+      { row: 5, col: 4, hits: 2 },
+    ],
     skip: [
       [1, 2],
       [1, 5],
@@ -205,6 +260,15 @@ export const LEVELS: LevelDef[] = [
     hazardBricks: [
       { row: 4, col: 2, hazard: "narrow-paddle" },
       { row: 4, col: 5, hazard: "freeze-paddle" },
+    ],
+    toughBricks: [
+      { row: 0, col: 0, hits: 2 },
+      { row: 0, col: 3, hits: 2 },
+      { row: 0, col: 7, hits: 2 },
+      { row: 0, col: 5, hits: 3 },
+      { row: 4, col: 0, hits: 2 },
+      { row: 4, col: 7, hits: 3 },
+      { row: 5, col: 3, hits: 2 },
     ],
     skip: [
       [1, 3],
@@ -238,7 +302,7 @@ export function validateLevels(
   rows: number = BRICK_ROWS,
   maxStarBricks = 8,
   maxHazardBricks = 4,
-  toughBrickRows: number = TOUGH_BRICK_ROWS,
+  maxBrickHits: number = MAX_BRICK_HITS,
 ): LevelValidationIssue[] {
   const issues: LevelValidationIssue[] = [];
 
@@ -268,20 +332,22 @@ export function validateLevels(
       return true;
     };
 
-    const claimSpecial = (row: number, col: number, kind: string) => {
-      const inBounds = claim(row, col, kind);
-      if (inBounds && row < toughBrickRows) {
+    // Tough bricks are claimed first, so a star/hazard landing on one is
+    // reported as a cell collision — a star/hazard must never need more
+    // than one hit to trigger (design brief §3).
+    level.toughBricks.forEach((t) => {
+      claim(t.row, t.col, "tough brick");
+      if (t.hits < 2 || t.hits > maxBrickHits) {
         issues.push({
           levelIndex,
           levelName: level.name,
-          message: `${kind} at (${row},${col}) sits on a tough-brick row — a star/hazard should never need 2 hits to trigger`,
+          message: `tough brick at (${t.row},${t.col}) has ${t.hits} hits, outside the supported 2..${maxBrickHits}`,
         });
       }
-    };
-
+    });
     level.skip.forEach(([row, col]) => claim(row, col, "skip"));
-    level.starBricks.forEach((s) => claimSpecial(s.row, s.col, "star brick"));
-    level.hazardBricks.forEach((h) => claimSpecial(h.row, h.col, "hazard brick"));
+    level.starBricks.forEach((s) => claim(s.row, s.col, "star brick"));
+    level.hazardBricks.forEach((h) => claim(h.row, h.col, "hazard brick"));
 
     if (level.starBricks.length > maxStarBricks) {
       issues.push({

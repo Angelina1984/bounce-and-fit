@@ -18,45 +18,99 @@ async function startGame(page: Page): Promise<void> {
 }
 
 test.describe("Tough bricks", () => {
-  test("a top-row brick survives one hit and only actually destroys on the second", async ({ page }) => {
+  test("a 3-hit brick lightens one shade per hit and only destroys on the third", async ({ page }) => {
     await startGame(page);
 
+    // The shade IS the hit-count readout now — there's no number to read —
+    // so this asserts the tint actually changes, not just the data value.
     const before = await page.evaluate(() => {
       const s = window.__game.scene.getScene("prototype");
-      const brick = s.bricks.getChildren().find((b: any) => b.getData("hitsRemaining") !== undefined);
-      return { hitsRemaining: brick.getData("hitsRemaining"), bricksLeft: s.bricks.countActive(true) };
-    });
-    expect(before.hitsRemaining).toBe(2);
-
-    // First hit: decrements and updates the label, but does not destroy it.
-    await page.evaluate(() => {
-      const s = window.__game.scene.getScene("prototype");
-      const brick = s.bricks.getChildren().find((b: any) => b.getData("hitsRemaining") !== undefined);
-      s.handleBrickHit(s.primaryBall, brick);
-    });
-    const afterFirstHit = await page.evaluate(() => {
-      const s = window.__game.scene.getScene("prototype");
-      const brick = s.bricks.getChildren().find((b: any) => b.getData("hitsRemaining") !== undefined);
+      const brick = s.bricks.getChildren().find((b: any) => b.getData("hitsRemaining") === 3);
       return {
-        hitsRemaining: brick?.getData("hitsRemaining"),
-        labelText: (brick?.getData("hitsLabel") as { text: string } | undefined)?.text,
+        found: Boolean(brick),
+        hits: brick?.getData("hitsRemaining"),
+        tint: brick?.tintTopLeft,
         bricksLeft: s.bricks.countActive(true),
       };
     });
-    expect(afterFirstHit.bricksLeft).toBe(before.bricksLeft); // still there
-    expect(afterFirstHit.hitsRemaining).toBe(1);
-    expect(afterFirstHit.labelText).toBe("1");
+    expect(before.found).toBe(true);
+    expect(before.hits).toBe(3);
 
-    // Second hit: now it's actually destroyed.
+    const hitTheSameBrick = async () =>
+      page.evaluate(() => {
+        const s = window.__game.scene.getScene("prototype");
+        // Re-find by position: after a hit its hitsRemaining changes, so it
+        // can't be looked up by the old value.
+        const brick = s.bricks.getChildren().find((b: any) => b.getData("toughProbe") === true);
+        s.handleBrickHit(s.primaryBall, brick);
+      });
+
+    // Tag the brick so later lookups find the same one as its data changes.
     await page.evaluate(() => {
       const s = window.__game.scene.getScene("prototype");
-      const brick = s.bricks.getChildren().find((b: any) => b.getData("hitsRemaining") !== undefined);
-      s.handleBrickHit(s.primaryBall, brick);
+      const brick = s.bricks.getChildren().find((b: any) => b.getData("hitsRemaining") === 3);
+      brick.setData("toughProbe", true);
     });
-    const bricksLeftAfterSecondHit = await page.evaluate(() =>
-      window.__game.scene.getScene("prototype").bricks.countActive(true),
-    );
-    expect(bricksLeftAfterSecondHit).toBe(before.bricksLeft - 1);
+
+    const readProbe = () =>
+      page.evaluate(() => {
+        const s = window.__game.scene.getScene("prototype");
+        const brick = s.bricks.getChildren().find((b: any) => b.getData("toughProbe") === true);
+        return {
+          alive: Boolean(brick),
+          hits: brick?.getData("hitsRemaining"),
+          tint: brick?.tintTopLeft,
+          bricksLeft: s.bricks.countActive(true),
+        };
+      });
+
+    await hitTheSameBrick();
+    const afterFirst = await readProbe();
+    expect(afterFirst.alive).toBe(true);
+    expect(afterFirst.bricksLeft).toBe(before.bricksLeft); // survived
+    expect(afterFirst.hits).toBe(2);
+    expect(afterFirst.tint).not.toBe(before.tint); // visibly lighter
+
+    await hitTheSameBrick();
+    const afterSecond = await readProbe();
+    expect(afterSecond.alive).toBe(true);
+    expect(afterSecond.bricksLeft).toBe(before.bricksLeft);
+    expect(afterSecond.hits).toBe(1);
+    expect(afterSecond.tint).not.toBe(afterFirst.tint);
+
+    // Worn all the way down, it now looks like an ordinary brick — and the
+    // next hit destroys it like one.
+    const ordinaryTint = await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      const plain = s.bricks
+        .getChildren()
+        .find(
+          (b: any) => b.getData("hitsRemaining") === undefined && !b.getData("starPowerUp") && !b.getData("hazard"),
+        );
+      return plain?.tintTopLeft;
+    });
+    expect(afterSecond.tint).toBe(ordinaryTint);
+
+    await hitTheSameBrick();
+    const afterThird = await readProbe();
+    expect(afterThird.alive).toBe(false);
+    expect(afterThird.bricksLeft).toBe(before.bricksLeft - 1);
+  });
+
+  test("tough bricks are scattered through the grid, not confined to the top row", async ({ page }) => {
+    await startGame(page);
+
+    const rows = await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      // Recover each tough brick's grid row from its Y position.
+      const ys = s.bricks
+        .getChildren()
+        .filter((b: any) => b.getData("hitsRemaining") !== undefined)
+        .map((b: any) => Math.round(b.y));
+      return [...new Set<number>(ys)].sort((a, b) => a - b);
+    });
+
+    expect(rows.length).toBeGreaterThan(1); // more than one row has tough bricks
   });
 });
 

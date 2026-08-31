@@ -4,14 +4,11 @@ import {
   BRICK_GAP,
   BRICK_HEIGHT,
   BRICK_ROWS,
-  BRICK_TINT_NORMAL,
   BRICK_TINT_STAR,
   BRICK_TOP,
   BRICK_WIDTH,
   TEXTURE_KEY_TILE,
-  TOUGH_BRICK_HITS,
-  TOUGH_BRICK_LABEL_COLOR,
-  TOUGH_BRICK_ROWS,
+  BRICK_TINTS_BY_HITS,
 } from "../constants";
 import { POWER_UP_TINTS } from "../levelData";
 import type { LevelDef } from "../levelData";
@@ -28,6 +25,7 @@ export function buildBrickGrid(scene: Phaser.Scene, bricks: Phaser.Physics.Arcad
   const skip = new Set(level.skip.map(([row, col]) => `${row},${col}`));
   const starMap = new Map(level.starBricks.map((s) => [`${s.row},${s.col}`, s.powerUp]));
   const hazardMap = new Map(level.hazardBricks.map((h) => [`${h.row},${h.col}`, h.hazard]));
+  const toughMap = new Map(level.toughBricks.map((t) => [`${t.row},${t.col}`, t.hits]));
 
   for (let row = 0; row < BRICK_ROWS; row++) {
     for (let col = 0; col < BRICK_COLS; col++) {
@@ -39,23 +37,19 @@ export function buildBrickGrid(scene: Phaser.Scene, bricks: Phaser.Physics.Arcad
       const x = startX + col * (BRICK_WIDTH + BRICK_GAP);
       const y = BRICK_TOP + row * (BRICK_HEIGHT + BRICK_GAP);
 
+      // Tough bricks are scattered per level (validateLevels guarantees they
+      // never share a cell with a star/hazard), and their hit count is shown
+      // purely as a darker shade — no number. Each hit re-tints one step
+      // lighter, so a 3-hit brick visibly becomes a 2-hit one and then an
+      // ordinary brick. See PrototypeScene#handleBrickHit.
+      const hits = toughMap.get(key) ?? 1;
+
       const brick = bricks.create(x, y, TEXTURE_KEY_TILE) as Phaser.Physics.Arcade.Image;
       brick.setDisplaySize(BRICK_WIDTH, BRICK_HEIGHT);
-      brick.setTint(starPowerUp ? BRICK_TINT_STAR : hazard ? POWER_UP_TINTS[hazard] : BRICK_TINT_NORMAL);
+      brick.setTint(starPowerUp ? BRICK_TINT_STAR : hazard ? POWER_UP_TINTS[hazard] : BRICK_TINTS_BY_HITS[hits - 1]);
       brick.setData("starPowerUp", starPowerUp);
       brick.setData("hazard", hazard);
-
-      // Tough brick: top row(s) take multiple hits — see
-      // PrototypeScene#handleBrickHit for the decrement-then-destroy logic.
-      // Applies uniformly whether or not this cell also carries a star/
-      // hazard: that effect only fires on the hit that actually destroys it.
-      if (row < TOUGH_BRICK_ROWS) {
-        brick.setData("hitsRemaining", TOUGH_BRICK_HITS);
-        const label = scene.add
-          .text(x, y, String(TOUGH_BRICK_HITS), { fontSize: "14px", color: TOUGH_BRICK_LABEL_COLOR, fontStyle: "bold" })
-          .setOrigin(0.5);
-        brick.setData("hitsLabel", label);
-      }
+      if (hits > 1) brick.setData("hitsRemaining", hits);
 
       brick.refreshBody();
     }

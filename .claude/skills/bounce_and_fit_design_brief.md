@@ -40,9 +40,11 @@ Design hierarchy: **Core Hook** (why it's different) → **Core Loop** (what you
 
 ### Tough bricks — a structural property, not a booster or hazard
 
-- The top row of every level's brick grid takes 2 hits to destroy instead of 1 — marked with the hit count as a number inside the brick.
-- Deliberately independent of the catch mechanic: a tough brick never carries a star or a hazard, so "needs 2 hits" is never entangled with "also drops something" — the extra hit is purely a structural cost of clearing that row, not a booster/hazard interaction to reason about.
+- Bricks that take 2 or 3 hits to destroy, **scattered through the grid** and hand-placed per level (`LevelDef.toughBricks`), not confined to a reserved row.
+- **The shade is the hit counter.** A tough brick is a darker blue than an ordinary one — darker means more hits left — and every hit re-tints it one step lighter, so it visibly wears down until it looks exactly like an ordinary brick, which is also the hit that will destroy it next. There is no number printed on the brick. This keeps the readout instant and language-free (§7's all-ages positioning) and means the player learns the rule by watching one brick change rather than by reading a digit.
+- Deliberately independent of the catch mechanic: a tough brick never carries a star or a hazard, so "needs 2 hits" is never entangled with "also drops something" — the extra hits are purely a structural cost, not a booster/hazard interaction to reason about. `validateLevels()` enforces this as a cell collision.
 - Not a booster in the `BoosterController` sense — no catch, no duration, no decay. It's a property of the brick itself, checked before the normal destroy/star/hazard logic runs.
+- The shade ladder (`BRICK_TINTS_BY_HITS`) is what caps the hit count: supporting a 4-hit brick means adding a fourth shade, which is the right constraint — a hit count with no distinct color to express it would be unreadable.
 
 ### Challenge speed ramp — levels 1-4 stay calm, levels 5+ get progressively faster
 
