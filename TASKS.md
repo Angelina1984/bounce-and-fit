@@ -612,6 +612,36 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       grid does. Third instance of the same root cause (see the `(240, 460)`
       cleanup above) — layout literals in tests are a recurring trap here.
 
+- [x] **Scoring** (Aug 30, 2026). Reported live: "I have no idea how many
+      points I scored." Checked the design brief first rather than
+      inventing: it had **no point-score spec at all**, and §5's 1★/2★/3★
+      formula had been unimplementable since Aug 29 — both its criteria
+      reference "bounces remaining", and the bounce budget was replaced by
+      lives that day. The brief's own change note already listed this as
+      unreconciled, so implementing scoring was the moment to close it.
+      New `ScoreKeeper` (`src/gameplay/ScoreKeeper.ts`) — Phaser-free and
+      owns no GameObjects, so the whole model is unit-tested (13 cases)
+      without a browser. Model: 10 pts per brick × its hit cost × a combo
+      multiplier that rises per brick destroyed **within one paddle-to-paddle
+      trip** (capped ×5), plus 100 on level clear and 50 per life still in
+      hand. The combo is the point: a flat per-brick score rewards grinding,
+      which pulls against §2's planning-over-reflex hook, while scaling by
+      what a single aimed shot achieves rewards exactly that. Score is
+      run-wide like lives — carried via `PrototypeSceneData.carryScore` on
+      "Next Level", reset on retry/"Play Again". HUD gained a live score
+      pill in the top bar and a win/lose breakdown panel. Design brief §3
+      gained a Scoring section; §5's star line is marked superseded and the
+      change-note item struck through as resolved.
+- [x] **Fixed another fixed-sleep flake** (Aug 30, 2026). Level 5's Burning
+      Ball test slept a flat 400ms then sampled velocity once; it passed at
+      `--workers=1` and failed at 8. Now samples once per `requestAnimationFrame`
+      until bricks actually fall, which both tracks the real physics step
+      under throttling and gives a stronger assertion — velocity must never
+      go positive at _any_ frame, rather than merely being negative at the
+      end. Fourth instance of wall-clock sleeps standing in for simulation
+      progress; `waitForGameState()` and this rAF-sampling loop are the two
+      shapes that actually work.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

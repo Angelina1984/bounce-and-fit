@@ -125,6 +125,17 @@ export const FORESIGHT_MAX_WALL_BOUNCES = 2;
 export const DOUBLE_BALL_SPAWN_COUNT = 2;
 export const TRIPLE_BALL_SPAWN_COUNT = 3;
 
+// Scoring — see the design brief's scoring reconciliation record. The
+// combo is the part that carries the design intent: points scale with how
+// many bricks a single well-aimed shot clears, so planning a angle that
+// rakes a row beats poking at bricks one at a time. Capped so Burning Ball
+// (which can pierce a whole column in one trip) stays a strong reward
+// rather than a runaway one.
+export const SCORE_PER_BRICK = 10;
+export const SCORE_MAX_COMBO = 5;
+export const SCORE_LEVEL_CLEAR = 100;
+export const SCORE_PER_LIFE_REMAINING = 50;
+
 // Playfield arena — the ball's world bounds are inset to these, and a
 // frame is drawn exactly on them, so the walls the player can see are the
 // walls the ball actually bounces off. Previously the bounds were the raw

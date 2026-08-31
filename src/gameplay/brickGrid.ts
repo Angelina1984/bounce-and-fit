@@ -50,6 +50,9 @@ export function buildBrickGrid(scene: Phaser.Scene, bricks: Phaser.Physics.Arcad
       brick.setData("starPowerUp", starPowerUp);
       brick.setData("hazard", hazard);
       if (hits > 1) brick.setData("hitsRemaining", hits);
+      // Original cost, kept alongside the decrementing counter so scoring
+      // can pay for what the brick cost rather than what's left of it.
+      brick.setData("maxHits", hits);
 
       brick.refreshBody();
     }

@@ -15,6 +15,8 @@ export interface SceneSnapshot {
   state: string;
   lives: number;
   levelIndex: number;
+  score: number;
+  scoreText: string;
   levelText: string;
   messageText: string;
   actionText: string;
@@ -130,6 +132,8 @@ export async function getPrototypeScene(page: Page): Promise<SceneSnapshot> {
       state: s.state,
       lives: s.livesRemaining,
       levelIndex: s.levelIndex,
+      score: s.scoring.score,
+      scoreText: s.hud.scoreText.text,
       levelText: s.hud.levelText.text,
       messageText: s.hud.messageText.text,
       actionText: s.hud.actionText.text,

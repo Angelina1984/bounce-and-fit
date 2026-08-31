@@ -32,13 +32,17 @@ import {
  */
 export class Hud {
   readonly livesText: Phaser.GameObjects.Text;
+  readonly scoreText: Phaser.GameObjects.Text;
   readonly levelText: Phaser.GameObjects.Text;
+  readonly breakdownText: Phaser.GameObjects.Text;
   readonly boosterText: Phaser.GameObjects.Text;
   readonly messageText: Phaser.GameObjects.Text;
   readonly actionText: Phaser.GameObjects.Text;
 
   private readonly livesPill: Phaser.GameObjects.Graphics;
+  private readonly scorePill: Phaser.GameObjects.Graphics;
   private readonly levelPill: Phaser.GameObjects.Graphics;
+  private readonly breakdownPill: Phaser.GameObjects.Graphics;
   private readonly boosterPill: Phaser.GameObjects.Graphics;
   private readonly actionButtonBg: Phaser.GameObjects.Graphics;
 
@@ -50,6 +54,11 @@ export class Hud {
     this.livesText = scene.add
       .text(HUD_EDGE + HUD_PAD_X, HUD_ROW_Y, "", outlinedTextStyle("19px", 3))
       .setOrigin(0, 0.5);
+
+    this.scorePill = scene.add.graphics();
+    this.scoreText = scene.add
+      .text(width / 2, HUD_ROW_Y, "", outlinedTextStyle("19px", 3, TEXT_COLOR_GOLD))
+      .setOrigin(0.5, 0.5);
 
     this.levelPill = scene.add.graphics();
     this.levelText = scene.add
@@ -65,15 +74,25 @@ export class Hud {
     this.actionButtonBg = scene.add.graphics().setVisible(false);
 
     this.messageText = scene.add
-      .text(width / 2, height / 2 - 20, "", outlinedTextStyle("30px", 5, TEXT_COLOR_WHITE))
+      .text(width / 2, height / 2 - 70, "", outlinedTextStyle("30px", 5, TEXT_COLOR_WHITE))
       .setOrigin(0.5)
       .setVisible(false);
+
+    this.breakdownPill = scene.add.graphics().setVisible(false);
+    this.breakdownText = scene.add
+      .text(width / 2, height / 2 + 20, "", {
+        ...outlinedTextStyle("15px", 3),
+        align: "center",
+      })
+      .setOrigin(0.5, 0.5)
+      .setVisible(false)
+      .setLineSpacing(4);
 
     // Label and click behavior are set per-outcome via setAction() — this is
     // "Tap to retry" after a loss, "Next Level" (or "Play Again" on the
     // last level) after a win.
     this.actionText = scene.add
-      .text(width / 2, height / 2 + 35, "", outlinedTextStyle("20px", 4))
+      .text(width / 2, height / 2 + 120, "", outlinedTextStyle("20px", 4))
       .setOrigin(0.5)
       .setVisible(false)
       .setInteractive({ useHandCursor: true });
@@ -123,6 +142,25 @@ export class Hud {
   setLives(lives: number): void {
     this.livesText.setText(`Lives: ${lives}`);
     this.redrawPill(this.livesPill, this.livesText, 0);
+  }
+
+  setScore(score: number): void {
+    this.scoreText.setText(score.toLocaleString());
+    this.redrawPill(this.scorePill, this.scoreText, 0.5);
+  }
+
+  /** Win/lose breakdown: rows of label + value, right-aligned into columns
+   * by padding, since Phaser Text has no tab stops. */
+  showScoreBreakdown(rows: Array<[string, number]>): void {
+    const labelWidth = Math.max(...rows.map(([label]) => label.length));
+    const body = rows.map(([label, value]) => `${label.padEnd(labelWidth)}   ${value.toLocaleString()}`).join("\n");
+    this.breakdownText.setText(body).setVisible(true);
+
+    const padX = 20;
+    const w = this.breakdownText.width + padX * 2;
+    const h = this.breakdownText.height + 20;
+    paintPillBackground(this.breakdownPill, this.breakdownText.x - w / 2, this.breakdownText.y - h / 2, w, h, 16);
+    this.breakdownPill.setVisible(true);
   }
 
   setLevel(levelIndex: number, levelName: string): void {

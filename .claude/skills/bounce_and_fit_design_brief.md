@@ -23,7 +23,7 @@ Design hierarchy: **Core Hook** (why it's different) → **Core Loop** (what you
 - At zero lives: level ends → retry. No mid-fall "plays out" grace period — losing the last life ends the level immediately.
 
 > **Change note (Aug 29, 2026):** the original design bet here was a *bounce budget* — a fixed number of paddle *hits* per level, spent by successfully catching the ball, with the puzzle being to plan those catches carefully (see §8's competitive-positioning rationale, which was built around this being a planning-based, non-reflex constraint). Playtesting the ugly prototype (§6a) surfaced that this didn't feel good: spending a scarce resource on *successful* play read as punishing rather than strategic. Replaced with a conventional lives-on-miss model instead. **This has NOT yet been reconciled with:**
-> - §5's star-scoring formula (2★/3★ criteria reference "bounces remaining" / "optimal bounce count" — those need a lives-based or bricks-based analogue).
+> - ~~§5's star-scoring formula (2★/3★ criteria reference "bounces remaining" / "optimal bounce count" — those need a lives-based or bricks-based analogue).~~ **Resolved Aug 30, 2026** — replaced by the combo-based score in §3's "Scoring", which uses lives-remaining as its end-of-level bonus. See the scoring reconciliation record.
 > - §8's competitive-positioning bet, which explicitly named the bounce-budget's planning-over-reflex framing as the thing no competitor was doing. A lives-on-miss model is much closer to the genre norm §8 was trying to differentiate from — worth revisiting whether the differentiation now needs to come from elsewhere (star bricks/power-ups, calm pacing, accessibility) before locking the MVP scope in §6b.
 
 ### Star bricks — always positive
@@ -52,6 +52,26 @@ Design hierarchy: **Core Hook** (why it's different) → **Core Loop** (what you
 - **Starting at level 5, the ball gets progressively faster, one step per level** (see `ballSpeedForLevel()` in `gameplayMath.ts` and `CHALLENGE_START_LEVEL_INDEX`/`CHALLENGE_SPEED_STEP` in `constants.ts`). The premise: a player who's cleared the first 4 levels has demonstrated enough basic proficiency to count as "good" — from here on, the game can reward and challenge motor skill without compromising the baseline experience everyone else plays through levels 1-4.
 - This is a deliberate, narrow carve-out from the "calm, non-reflex" positioning, not a reversal of it — see the reconciliation record below.
 - Every other speed-related mechanic (Slow Ball's multiplier, Extra Ball/Double Ball/Triple Ball's spawn-speed clamp) scales off this level-adjusted base speed, not a flat constant, so a spawn on level 6 isn't artificially capped at level 1's speed.
+
+### Scoring
+
+Reported live as "I have no idea how many points I scored" — there was no point score at all, and §5's star formula had been unimplementable since the bounce budget was retired.
+
+| Event | Award |
+|---|---|
+| Brick destroyed | 10 × its hit cost × the current combo multiplier |
+| Tough brick | the hit cost multiplies it — a 3-hit brick is worth 3× a plain one |
+| Combo multiplier | rises by 1 per brick destroyed **within a single paddle-to-paddle trip**, capped at ×5 |
+| Level cleared | +100 |
+| Each life still in hand at level end | +50 |
+
+**The combo is the design content here, not decoration.** A flat per-brick score would reward volume — grinding out bricks one at a time — which pulls directly against §2's Core Hook and §8's competitive bet that this game is about planning rather than reflex. Scaling by how many bricks fall to a *single aimed shot* rewards exactly the thing the game claims to be about: a bounce angled to rake along a row is worth several times the same bricks poked out individually. It also gives the boosters a scoring dimension they didn't have — Burning Ball's pierce and the multi-ball boosters become score plays, not just survival aids.
+
+The ×5 cap exists so Burning Ball (which can clear a whole column in one trip) stays a strong reward rather than a runaway one. The per-life bonus is what keeps the lives constraint meaningful to a score-motivated player: clearing without missing is worth materially more than scraping through, which matches §3's "power-ups should help the player spend lives more intelligently — not erase the constraint."
+
+**Score is run-wide, like lives.** It carries forward through "Next Level" and resets to zero on a retry or "Play Again" — a run's score is the score of that run.
+
+**Deliberately not in yet:** no high-score persistence (that's `localStorage`, §6b MVP scope, not the ugly prototype), and no star ratings (see §5).
 
 ### Power-ups (current prototype catalog — Aug 29, 2026)
 
@@ -142,7 +162,7 @@ Raised as an open design question — when should the ball actually get faster t
 
 **Puzzle intent rule:** every level must complete the sentence *"The player should realize that ___."* If you can't fill that in, the level is unfocused.
 
-**Success/stars:** 1★ clear level, 2★ clear with ≥1 bounce remaining, 3★ clear using ≤ optimal bounce count. Stars never block progression in MVP.
+**Success/score:** a numeric run score — see "Scoring" in §3. The original 1★/2★/3★ formula here was written against the bounce budget and became unimplementable when that was replaced by lives (see the Aug 29 change note in §3); it is **superseded** by the score, not merely restated. Stars may return later as thresholds *derived from* the score, which is a decision to make with real play data rather than up front; if they do, they still never block progression.
 
 **Teaching rule:** each new mechanic is introduced alone; no level introduces more than one new idea; first exposure should never be "impossible to fail silently."
 

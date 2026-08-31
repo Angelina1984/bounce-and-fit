@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { BoosterController } from "../gameplay/BoosterController";
+import { ScoreKeeper } from "../gameplay/ScoreKeeper";
 import { buildBrickGrid } from "../gameplay/brickGrid";
 import { ballSpeedForLevel, bounceOffsetToAngleRad, velocityFromAngle } from "../gameplayMath";
 import {
@@ -51,6 +52,10 @@ interface PrototypeSceneData {
    * full life count. Passed as one-shot scene-restart data rather than a
    * persistent field, so there's nothing to remember to reset between runs. */
   carryLives?: boolean;
+  /** The run score to continue from, set by "Next Level" only. Omitted on a
+   * retry or "Play Again", which start a fresh run back at zero — score is
+   * a run-wide resource, same as lives. */
+  carryScore?: number;
   /** Set alongside carryLives by "Next Level" only — how many balls beyond
    * the primary (e.g. from Extra Ball) were still in play when the level
    * was won, so create() can recreate them in the new level's serving
@@ -69,6 +74,7 @@ export class PrototypeScene extends Phaser.Scene {
   private powerUps!: Phaser.Physics.Arcade.Group;
   private boosters!: BoosterController;
   private hud!: Hud;
+  private scoring!: ScoreKeeper;
   private foresightGraphics!: Phaser.GameObjects.Graphics;
 
   // Layout derived from the live canvas height, which depends on the
@@ -128,6 +134,7 @@ export class PrototypeScene extends Phaser.Scene {
       this.livesRemaining = MAX_LIVES;
     }
     this.state = GAME_STATE.SERVING;
+    this.scoring = new ScoreKeeper(data.carryScore ?? 0);
     this.ballSpeed = ballSpeedForLevel(this.levelIndex, BALL_SPEED, CHALLENGE_START_LEVEL_INDEX, CHALLENGE_SPEED_STEP);
 
     this.paddle = this.physics.add
@@ -234,6 +241,7 @@ export class PrototypeScene extends Phaser.Scene {
 
     this.hud.setLevel(this.levelIndex, LEVELS[this.levelIndex].name);
     this.hud.setLives(this.livesRemaining);
+    this.hud.setScore(this.scoring.score);
     this.hud.setBoosterStatus(this.boosters.getStatusText());
   }
 
@@ -307,6 +315,8 @@ export class PrototypeScene extends Phaser.Scene {
     // Catch & Aim: stick instead of bouncing immediately. The player then
     // drags (via movePaddle()'s follow logic below) and releases with a tap
     // — see the pointerdown handler — instead of an automatic return angle.
+    this.scoring.registerPaddleContact();
+
     if (this.boosters.stickyPaddleActive) {
       const body = ball.body as Phaser.Physics.Arcade.Body;
       body.setVelocity(0, 0);
@@ -353,6 +363,8 @@ export class PrototypeScene extends Phaser.Scene {
     // star bricks, so a hazard can never be dodged by simply not catching it
     // (nor mistaken for a positive drop) once you've broken it.
     if (hazard) this.boosters.apply(hazard);
+    this.scoring.registerBrickDestroyed((brickImage.getData("maxHits") as number | undefined) ?? 1);
+    this.hud.setScore(this.scoring.score);
     brickBurst(this, brickImage.x, brickImage.y, brickImage.tintTopLeft);
     brickImage.destroy();
 
@@ -492,6 +504,7 @@ export class PrototypeScene extends Phaser.Scene {
         this.livesRemaining -= 1;
         this.hud.setLives(this.livesRemaining);
         this.boosters.resetAll();
+        this.scoring.registerLifeLost();
         lifeLostShake(this);
         if (this.livesRemaining <= 0) {
           this.endLevel(GAME_STATE.LOST);
@@ -532,6 +545,16 @@ export class PrototypeScene extends Phaser.Scene {
     this.hud.showMessage(result === GAME_STATE.WON ? "Congrats! Level clear!" : "Out of lives");
 
     if (result === GAME_STATE.WON) {
+      // Bonuses land before the breakdown is rendered, so the number shown
+      // is the score the next level actually starts from.
+      const bonus = this.scoring.registerLevelClear(this.livesRemaining);
+      this.hud.setScore(bonus.total);
+      this.hud.showScoreBreakdown([
+        ["Level clear", bonus.levelClear],
+        [`Lives x${this.livesRemaining}`, bonus.livesBonus],
+        ["Total", bonus.total],
+      ]);
+
       const isLastLevel = this.levelIndex >= LEVELS.length - 1;
       this.hud.setAction(isLastLevel ? "Play Again" : "Next Level", () => {
         this.levelIndex = isLastLevel ? 0 : this.levelIndex + 1;
@@ -552,6 +575,7 @@ export class PrototypeScene extends Phaser.Scene {
         const carry = !isLastLevel;
         this.scene.restart({
           carryLives: carry,
+          carryScore: carry ? this.scoring.score : undefined,
           extraBallCount: carry ? Math.max(0, this.balls.countActive(true) - 1) : undefined,
         });
       });
@@ -559,8 +583,10 @@ export class PrototypeScene extends Phaser.Scene {
       // Lives are a run-wide resource (they carry across levels), so running
       // out is a full game over — retry restarts the whole run from level 1,
       // not just a replay of the level you happened to be on.
+      this.hud.showScoreBreakdown([["Final score", this.scoring.score]]);
       this.hud.setAction("Tap to retry", () => {
         this.levelIndex = 0;
+        // A fresh run: no carryScore, so the next create() starts at 0.
         this.scene.restart({ carryLives: false });
       });
     }
