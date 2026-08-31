@@ -14,6 +14,8 @@ import type { Page } from "@playwright/test";
 export interface SceneSnapshot {
   state: string;
   lives: number;
+  /** Ball icons actually visible in the HUD — the on-screen life count. */
+  lifeIconsVisible: number;
   levelIndex: number;
   score: number;
   scoreText: string;
@@ -131,6 +133,7 @@ export async function getPrototypeScene(page: Page): Promise<SceneSnapshot> {
     return {
       state: s.state,
       lives: s.livesRemaining,
+      lifeIconsVisible: s.hud.livesIcons.filter((i: any) => i.visible).length,
       levelIndex: s.levelIndex,
       score: s.scoring.score,
       scoreText: s.hud.scoreText.text,

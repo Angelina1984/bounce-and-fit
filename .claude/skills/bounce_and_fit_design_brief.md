@@ -17,7 +17,7 @@ Design hierarchy: **Core Hook** (why it's different) → **Core Loop** (what you
 ## 3. Locked Game Rules — MVP Canon
 
 ### Primary constraint: lives (supersedes the original bounce-budget constraint — see note)
-- Each level starts with a fixed number of lives (prototype default: 5).
+- Each level starts with a fixed number of lives (prototype default: 5), shown in the HUD as a **row of ball icons** rather than a number — they disappear right-to-left as lives are lost. Icons over a numeral is an accessibility call (§7): it's readable at a glance and doesn't require literacy, which matters for the youngest end of the all-ages audience.
 - Catching the ball with the paddle is free and unlimited — it never costs a life.
 - A life is lost only when the ball is actually missed (falls past the paddle and off the bottom of the play field).
 - At zero lives: level ends → retry. No mid-fall "plays out" grace period — losing the last life ends the level immediately.

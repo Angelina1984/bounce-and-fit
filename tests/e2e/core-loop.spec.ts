@@ -106,4 +106,52 @@ test.describe("Core loop", () => {
     expect(state.lives).toBe(5);
     expect(state.state).toBe(GAME_STATE.SERVING);
   });
+
+  test("lives show as ball icons that disappear right-to-left as they're lost", async ({ page }) => {
+    await startGame(page);
+
+    let state = await getPrototypeScene(page);
+    expect(state.lives).toBe(5);
+    expect(state.lifeIconsVisible).toBe(5);
+
+    // Which icons remain matters, not just how many: losing a life must
+    // clear the rightmost, so the row always reads left-aligned.
+    const xsBefore = await page.evaluate(() =>
+      window.__game.scene
+        .getScene("prototype")
+        .hud.livesIcons.filter((i: any) => i.visible)
+        .map((i: any) => Math.round(i.x as number)),
+    );
+
+    await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      s.state = "playing";
+      s.paddle.x = 50;
+      s.primaryBall.x = 400;
+      s.primaryBall.y = s.paddle.y - 30;
+      s.primaryBall.body.setVelocity(0, 500);
+    });
+    await page.waitForFunction(() => window.__game.scene.getScene("prototype").livesRemaining === 4, undefined, {
+      timeout: 10000,
+    });
+    // The icon fades out on a tween, so wait for it to finish hiding.
+    await page.waitForFunction(
+      () => window.__game.scene.getScene("prototype").hud.livesIcons.filter((i: any) => i.visible).length === 4,
+      undefined,
+      { timeout: 5000 },
+    );
+
+    state = await getPrototypeScene(page);
+    expect(state.lives).toBe(4);
+    expect(state.lifeIconsVisible).toBe(4);
+
+    const xsAfter = await page.evaluate(() =>
+      window.__game.scene
+        .getScene("prototype")
+        .hud.livesIcons.filter((i: any) => i.visible)
+        .map((i: any) => Math.round(i.x as number)),
+    );
+    // The survivors are exactly the leftmost four — the rightmost went.
+    expect(xsAfter).toEqual(xsBefore.slice(0, 4));
+  });
 });

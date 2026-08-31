@@ -642,6 +642,20 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       progress; `waitForGameState()` and this rAF-sampling loop are the two
       shapes that actually work.
 
+- [x] **Lives shown as ball icons, not a number** (Aug 30, 2026). "Lives: 5"
+      replaced by a row of five ball icons in the top-left, using the ball's
+      own texture and tint so the icons are unmistakably the thing you're
+      about to lose. Icons vanish right-to-left (index i is visible only
+      while `lives > i`), and a lost life pops and fades rather than simply
+      disappearing. Reads at a glance and needs no reading at all for the
+      youngest players (§7's all-ages positioning). The pill stays sized for
+      the full row rather than shrinking with the count — a shrinking pill
+      would make the whole bar jitter, and the empty slots are themselves
+      the "how many you've lost" readout. `livesText` is gone; nothing
+      outside `Hud` referenced it. E2E asserts the _positions_ of the
+      surviving icons, not just how many are visible — "5 became 4" would
+      pass even if the wrong icon disappeared.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**
