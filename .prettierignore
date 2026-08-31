@@ -8,3 +8,8 @@ package-lock.json
 
 # Prose docs, not code — hand-formatted tables/prose, not Prettier's job.
 .claude/**/*.md
+
+# Machine-local Claude Code state (permission approvals, task locks) — not
+# source, and git-ignored, so formatting it just fails CI on local churn.
+.claude/settings.local.json
+.claude/scheduled_tasks.lock

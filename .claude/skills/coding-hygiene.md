@@ -12,8 +12,7 @@ No generic `types/` folder. Every type lives in the module that owns the
 data or logic it describes:
 
 - Used in exactly one file → keep it private to that file (`Collided` in
-  `PrototypeScene.ts`; `PaddleWidthState`, `HitBasedBuff` in
-  `BoosterController.ts`).
+  `PrototypeScene.ts`; `PaddleWidthState` in `BoosterController.ts`).
 - Used across several files → export it from whichever module is its
   natural domain owner, not a generic bucket. `LevelDef`, `BoosterType`,
   `HazardType`, `PowerUpType` live in `levelData.ts` because that's where
@@ -173,12 +172,72 @@ and `update()`. Split it before it becomes unreadable, not after:
 - **Extract self-contained subsystems into their own class** once they have
   enough internal state and rules to reason about independently.
   `BoosterController` owns every booster/hazard's state, application,
-  decay, and reset so the Scene only has to know "apply this type", "a
-  brick was destroyed", "a life was lost" — not the mechanics of 7 power-ups.
+  expiry timer, and reset so the Scene only has to know "apply this type"
+  and "a life was lost" — not the mechanics of the whole catalog.
   Inject dependencies explicitly (paddle, balls group, a `createBall`
   factory, an `onChange` callback) rather than passing the whole Scene in.
 - **Extract UI text into a small class** (`Hud`) once a Scene is composing
   more than a couple of `add.text()` calls inline in `create()`.
+- **Shared visual style belongs in `src/ui/theme.ts`, not repeated per
+  Scene.** Once two Scenes want the same button or badge, the styling moves
+  there — as both a paint function (`paintPillBackground`,
+  `paintGlossyButtonBackground`, taking a caller-owned `Graphics` plus a
+  rect) and a self-contained component class (`PillBadge`, `GlossyButton`,
+  owning their own Container). Offering both isn't redundancy: a caller
+  that just wants a styled button uses the class, while a caller that must
+  keep its own GameObjects for other reasons uses the paint function
+  underneath. `Hud` is exactly that second case — its public
+  `Phaser.GameObjects.Text` fields are read directly by `gameHooks.ts`'s
+  E2E snapshots (`.text`, `.visible`, `.x`, `.y`), so it keeps plain Text
+  objects and layers themed Graphics *behind* them rather than swapping in
+  Containers and breaking every test that reads them. **A restyle should
+  not change a test-visible interface** — when it looks like it must,
+  reach for the paint function instead of the component class.
+- **Depth in Phaser Graphics comes from stacking flat shapes, not from
+  gradients — Graphics has no gradient fill.** A chunky "candy" button is
+  four layers: an oversized dark shape behind everything (the outline), a
+  darkened+desaturated platform, the vibrant face offset up off it, and a
+  thin bright interior stroke. Gloss is several translucent white capsules
+  of decreasing width stacked from the top, so their alphas accumulate into
+  a fake vertical gradient. Two things learned by looking at the render
+  rather than reasoning about it: overlapping gloss bands sum, so alphas
+  that look reasonable individually (0.25/0.18/0.15) bleach the color to
+  near-white; and the outline must stay *thinner* than the depth offset, or
+  it merges with the platform and the button reads flat again.
+- **Fill an oversized shape behind, don't stroke each layer.** Stroking the
+  platform and the face separately leaves a seam where their silhouettes
+  overlap. One enlarged filled shape drawn first traces their union
+  cleanly, and it's one draw call instead of several.
+- **Derive tones from one base color, don't hand-pick them.** `shadeColor()`
+  and `desaturateColor()` in `theme.ts` are pure integer math with no Phaser
+  dependency — which is both why restyling means changing one palette
+  constant, and why they're the only part of that file worth unit-testing.
+  The paint functions' real output is pixels; asserting their sequence of
+  `fillRoundedRect()` calls would test the implementation, not the look, so
+  those are checked by screenshotting a real browser instead.
+- **`textures.createCanvas()` is the escape hatch when you genuinely need a
+  gradient.** It hands back a real 2D context, so `createLinearGradient`/
+  `createRadialGradient` work — unlike Graphics, which has no gradient fill.
+  Generate once into a texture and stretch it; a vertical gradient has no
+  horizontal detail, so 64px wide is plenty. Everything else in `ui/` fakes
+  gradients with stacked translucent shapes because it's drawing *shapes*,
+  not full-bleed backgrounds.
+- **Layout constants that encode the canvas size are a trap once the canvas
+  is responsive.** `PADDLE_Y = 720` and `BALL_SERVE_Y` were fine while the
+  game was a fixed 480x800; the moment canvas height came from the viewport
+  they were silently wrong. Derive positions from `this.scale.height` in
+  `create()` and keep only the *relationship* as a constant
+  (`PADDLE_BOTTOM_MARGIN`, `BALL_SERVE_OFFSET_Y`). Same rule applied to the
+  E2E suite, which had ten hardcoded `(240, 460)` clicks — a test that
+  encodes layout breaks on every layout change and teaches nothing when it
+  does, so those became helpers that read the live canvas.
+- **A Graphics background sized from its label's own text metrics beats a
+  hand-measured rectangle.** `label.width`/`label.height` after `setText()`
+  are the real rendered bounds, so a badge that redraws from them stays
+  correct when the text changes length (booster status lines, level names
+  of different lengths) with no per-call magic numbers. The cost is that
+  every setter has to trigger the redraw — miss one and the background
+  silently keeps the previous string's width.
 - **Constants:** every tuning number, scene/texture key, and gray-box color
   lives in `src/constants.ts` — not because "constants files are good
   practice" in the abstract, but because these specific values (durations,
@@ -197,16 +256,19 @@ and `update()`. Split it before it becomes unreadable, not after:
   along with everything else `create()` rebuilds — there's no way to keep
   it alive across the restart, only to read what it holds *before*
   `restart()` is called, pass that as scene-restart data, and apply it onto
-  the fresh instance `create()` constructs. `BoosterController.getCarrySnapshot()`/
-  `applySnapshot()` and `PrototypeSceneData.boosterSnapshot`/`extraBallCount`
-  are the concrete pattern: captured in the "Next Level" click handler
-  (still the *old* instance, still valid), read back at the top of the next
-  `create()` (the *new* instance, right after it's built enough to receive
-  the state). Don't reach for `carryLives`-style booleans for this — a
-  boolean only works when the thing being carried has exactly one shape
-  (a number that's either reset or not); a snapshot object scales to "some
-  arbitrary subset of state, however many fields it has" without needing a
-  new flag per field.
+  the fresh instance `create()` constructs. `PrototypeSceneData`'s
+  `carryLives`/`extraBallCount` are the surviving example: captured in the
+  "Next Level" click handler (still reading the *old*, still-valid
+  instance), read back at the top of the next `create()`. A richer
+  `BoosterController.getCarrySnapshot()`/`applySnapshot()` pair used to
+  carry booster state the same way and was deleted once every booster
+  became a real-time timer — which is the more useful lesson: **a
+  restart-carry mechanism is only worth its weight while something
+  genuinely needs to survive the restart.** Real-time `delayedCall` timers
+  can't survive one by construction, so once every timed effect became one,
+  the whole snapshot layer had nothing left to carry and became dead
+  machinery. Check what actually needs to cross the boundary before
+  building the bridge, and delete the bridge when the answer changes.
 - **Generalizing "the one ball" to "however many balls happen to be in
   play" means finding every place code assumed there's exactly one**, not
   just the constructor. `primaryBall` positioning (`movePaddle()`'s
@@ -263,20 +325,24 @@ just applied to a visual effect instead of a body property.
 
 **A bulk "destroy everything in this level" test helper needs to account
 for multi-hit (tough) bricks and for levels with several star/hazard
-bricks, not just plain ones.** `winCurrentLevel()` and
-`destroyOneNormalBrick()` in `gameHooks.ts` both originally assumed one
+bricks, not just plain ones.** `winCurrentLevel()` in `gameHooks.ts` (and a
+since-deleted `destroyOneNormalBrick()` sibling) originally assumed one
 `handleBrickHit()` call destroys exactly one brick — true before tough
 bricks (top row, 2 hits) existed and before levels carried more than one
 star brick. Once levels got denser (§5's "unlock everything from level 1"),
-a single-pass "hit every brick once" loop left tough bricks half-destroyed
-(so a level never actually finished) and a test-specific "destroy all but
-one" loop that excluded *all* star bricks accidentally left several
-untouched star bricks for `winCurrentLevel()` to destroy later — each one
-an extra, unaccounted-for booster-decay call. Fixed by making the bulk
-helpers repeat passes until nothing destroyable remains (bounded to a few
-iterations, since `TOUGH_BRICK_HITS` is small and finite) instead of a
-single sweep, and by being precise about *which* star brick a test-specific
-setup loop is allowed to leave untouched.
+a single-pass "hit every brick once" loop left tough bricks half-destroyed,
+so a level never actually finished. Fixed by making the bulk helper repeat
+passes until nothing destroyable remains (bounded to a few iterations,
+since `TOUGH_BRICK_HITS` is small and finite) instead of a single sweep.
+
+That helper's *other* original hazard is now gone rather than fixed, which
+is worth recording as a shape: while boosters decayed by bricks destroyed,
+any test helper that destroyed bricks was silently also a booster-decay
+call, so "destroy all but one brick" setups had to be precise about exactly
+which bricks they touched. Converting every booster to a real-time timer
+removed that coupling entirely — bulk brick destruction no longer perturbs
+booster state at all. **When a test helper needs surgical precision about
+side effects, check whether the coupling itself is the thing to remove.**
 
 **A `page.evaluate()` callback can't close over a Node-side import.**
 Playwright serializes the callback's source and re-evaluates it inside the
@@ -383,22 +449,21 @@ rediscovered:
   available. If a future class genuinely needs to *execute* Phaser code
   outside a browser context, that's the point to actually reach for a
   DOM-emulating test environment — don't reach for it preemptively.
-- **A hit-based booster's own duration budget can run out mid-effect once
-  the level geometry changes underneath it, and that's a real mechanic
-  surfacing, not a bug.** `BURNING_BALL_BRICK_HITS` (5) was previously
-  always enough to pierce a full vertical brick column, back when
-  `BRICK_ROWS` was 4. Once the grid grew to 7 rows, a ball piercing a full
-  column can exhaust Burning Ball's budget partway through, at which point
-  `burningActive` flips false mid-flight and the *next* brick in its path
-  gets hit through the normal collider (a real bounce) instead of the
-  overlap (a pierce) — confirmed by tracing `y`/`velocity`/`burningActive`
-  together frame-by-frame rather than guessing from the end state alone
-  (see "Every bug fix: prove the test fails" above — same discipline
-  applies to confirming something is *not* a bug). The fix was in the test
-  (start the ball closer, so it only needs to cross bricks safely within
-  budget), not the code — the code's decay-based duration is working
-  exactly as designed once you remember bricks-to-clear can now exceed the
-  budget.
+- **A booster's own duration can run out mid-effect once the level geometry
+  changes underneath it, and that's a real mechanic surfacing, not a bug.**
+  Burning Ball's budget (then 5 bricks, now a 5-second timer) was always
+  enough to pierce a full vertical brick column back when `BRICK_ROWS` was
+  4. Once the grid grew to 7 rows, a ball piercing a full column can
+  exhaust that budget partway through, at which point `burningActive` flips
+  false mid-flight and the *next* brick in its path gets hit through the
+  normal collider (a real bounce) instead of the overlap (a pierce) —
+  confirmed by tracing `y`/`velocity`/`burningActive` together
+  frame-by-frame rather than guessing from the end state alone (see "Every
+  bug fix: prove the test fails" above — same discipline applies to
+  confirming something is *not* a bug). The fix was in the test (start the
+  ball closer, so it only needs to cross bricks within budget), not the
+  code. The conversion to real-time timers changed *which* budget runs out,
+  not this hazard: a longer traversal still risks outliving the effect.
 - **An uncaught exception inside a collider/overlap callback halts the
   entire game, not just that one interaction — Phaser's core loop doesn't
   wrap each callback in its own try/catch.** Reported live as "the whole
@@ -519,14 +584,6 @@ the staged files without missing cross-file errors) but is fast enough
 **Deliberately not run in the hook: the test suites.** Both `test:unit` and
 especially `test:e2e` (spins up a real browser) are too slow for something
 that fires on every commit — that's what `npm run test` before pushing and
-the eventual CI workflow are for (see `TASKS.md`'s backlog). A pre-commit
-hook that takes 15+ seconds trains people to reach for `--no-verify`, which
-defeats the entire point of having one.
-
----
-
-## Not yet true — tracked, not asserted
-
-No CI workflow exists in this repo yet. Don't write hygiene rules that
-presuppose it; see `TASKS.md` for what's planned (a GitHub Actions workflow
-running `npm test`, once this repo has a remote to run it against).
+CI (`.github/workflows/ci.yml`, runs on every push/PR to `main`) are for.
+A pre-commit hook that takes 15+ seconds trains people to reach for
+`--no-verify`, which defeats the entire point of having one.
