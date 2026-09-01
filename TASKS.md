@@ -751,6 +751,27 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       no gutter to halve, which is why it survived this long. Phaser now
       uses `NO_CENTER` and CSS owns centering alone.
 
+- [x] **Thinner paddle, and drops that fall at the ball's speed** (Aug 31,
+      2026). "Can we make paddle skinnier? Speed of boosters as fast as the
+      speed of bouncing ball?"
+      "Skinnier" was ambiguous between the two dimensions and they are not
+      the same change — narrower is a difficulty change, thinner is
+      cosmetic. Asked; the answer was thinner. `PADDLE_HEIGHT` 14 → 10,
+      which is purely visual: `BALL_SERVE_OFFSET_Y` derives from it, the
+      paddle texture's corner radius is `padH / 2` so it stays a stadium,
+      and the Arcade body follows `setDisplaySize` (verified in the running
+      app — displayHeight 10, body height 10). The intercept width is
+      untouched.
+      `POWER_UP_DROP_SPEED` 130 → `BALL_SPEED` (420). **This reverses a
+      recorded design decision**, not just a number: §3's "slow/readable
+      drop speed" existed to keep a catch undemanding under §7's all-ages
+      positioning. Raised before changing it, confirmed with that tradeoff
+      stated, and the brief now records the reversal and what it costs
+      rather than the original. Kept flat rather than tracking
+      `ballSpeedForLevel()` so the challenge ramp doesn't speed drops up
+      alongside the ball on the levels that are already hardest — that
+      choice was the user's too.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

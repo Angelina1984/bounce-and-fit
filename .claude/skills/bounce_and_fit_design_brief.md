@@ -27,7 +27,7 @@ Design hierarchy: **Core Hook** (why it's different) → **Core Loop** (what you
 > - §8's competitive-positioning bet, which explicitly named the bounce-budget's planning-over-reflex framing as the thing no competitor was doing. A lives-on-miss model is much closer to the genre norm §8 was trying to differentiate from — worth revisiting whether the differentiation now needs to come from elsewhere (star bricks/power-ups, calm pacing, accessibility) before locking the MVP scope in §6b.
 
 ### Star bricks — always positive
-- Visually marked (gold), drop exactly one **booster** when destroyed, slow/readable drop speed.
+- Visually marked (gold), drop exactly one **booster** when destroyed, falling at the ball's own speed (`POWER_UP_DROP_SPEED = BALL_SPEED`).
 - Booster activates only if caught by the paddle; missed drops are never punished.
 - Placed intentionally, never randomly. **Superseded (see the reconciliation record after §3):** the original "never more than 2 per level" cap was dropped once the whole booster catalog unlocked from level 1 — levels now carry roughly 6 star bricks each.
 - **A star brick is unconditionally good.** Anything that could hurt the player — the two hazards below — deliberately lives on a separate brick type instead (see "Hazard bricks"), specifically so this rule never has an exception. See the reconciliation record at the end of this section for why that was worth calling out explicitly.
@@ -79,6 +79,8 @@ The ×5 cap exists so Burning Ball (which can clear a whole column in one trip) 
 **The level-clear screen names the level and shows a breakdown that sums to the total** — carried over, earned this level, clear bonus, lives bonus. Because the score is run-wide, a total alone can't tell a player what they just earned versus what they already had; a panel listing only the bonuses next to a much larger total reads as an error rather than a summary.
 
 **Deliberately not in yet:** no high-score persistence (that's `localStorage`, §6b MVP scope, not the ugly prototype), and no star ratings (see §5).
+
+**Drop speed: reversed on Aug 31, 2026.** Drops originally fell at 130 against a ball speed of 420 — a third of it — chosen so a catch would be undemanding for §7's all-ages positioning. In play it read as floating rather than as generous, so drops now fall at `BALL_SPEED`. The accessibility argument for the original is still valid and is what a reversal here costs: catching is now a real reaction, not a stroll. Two mitigations keep it from compounding: the drop speed is flat rather than tracking `ballSpeedForLevel()`, so the challenge-ramp levels don't speed the drops up alongside the ball, and §3's "no punishment for a missed drop" is unchanged — a drop you fail to catch still costs nothing but the +25.
 
 ### Power-ups (current prototype catalog — Aug 29, 2026)
 

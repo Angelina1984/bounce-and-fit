@@ -51,7 +51,7 @@ export const MAX_LIVES = 5;
 // (canvas height is viewport-dependent — see above), not a fixed constant:
 // this is how far above the bottom edge it sits.
 export const PADDLE_WIDTH = 90;
-export const PADDLE_HEIGHT = 14;
+export const PADDLE_HEIGHT = 10;
 export const PADDLE_BOTTOM_MARGIN = 80;
 export const PADDLE_TINT = 0xe8e4ff;
 
@@ -76,8 +76,19 @@ export const MAX_BALLS = 12;
 // overlap and trigger a phantom collision. Applied to the live paddle Y.
 export const BALL_SERVE_OFFSET_Y = PADDLE_HEIGHT / 2 + BALL_RADIUS + 4;
 
-// Power-up drop
-export const POWER_UP_DROP_SPEED = 130;
+// Power-up drop.
+//
+// Deliberately equal to BALL_SPEED, not the 130 it was: a drop that fell at
+// a third of the ball's speed read as floating. This *reverses* the design
+// brief's §3 "slow/readable drop speed", which existed to keep a catch
+// undemanding for the all-ages positioning (§7) — asked for and confirmed
+// with that tradeoff on the table, and the brief now records the reversal
+// rather than the original.
+//
+// Flat rather than tracking ballSpeedForLevel(): the challenge ramp speeds
+// the *ball* up from level 5 on, and letting the drops ramp too would
+// compound a reflex demand onto the levels that are already the hardest.
+export const POWER_UP_DROP_SPEED = BALL_SPEED;
 export const POWER_UP_SIZE = 16;
 
 // Every booster/hazard duration is real-time now (see the design brief's
