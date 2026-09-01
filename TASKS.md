@@ -707,6 +707,50 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       `showScoreBreakdown()` now takes preformatted strings: the scene
       decides signs and emphasis, the HUD only lays out.
 
+- [x] **Candy-UI material rebuild — gradients, filled rims, a green CTA**
+      (Aug 31, 2026). "Buttons shading and lines look ugly, cheap and not
+      polished looking. Why can't our colors and buttons look like these
+      images", with two casual-puzzle reference screenshots.
+      Four things were actually wrong, only one of which was color:
+      (1) Every face was a flat fill. Molded plastic has a lit top and a
+      shadowed underside; a single fill has neither, however correct the
+      layers around it are. Added `fillVerticalGradient`.
+      (2) The rim was a 2px line stroked 3px _inside_ the fill, so a band of
+      face color sat outside the gold — the edges read as misprinted. Rims
+      are now filled frames across the whole footprint with the face inset
+      on top (`paintCandyFrame`).
+      (3) `COLOR_PANEL_VIOLET` (0x3d2470) was one shade off
+      `BACKGROUND_COLOR` (0x2a1454), so every badge sank into the ground it
+      sat on. Both re-saturated; gold's dark end moved off brown, which was
+      reading as dirt rather than as the shadowed side of gold.
+      (4) Primary actions are green now. Gold is the chrome accent, so a
+      gold button was the same material as the frame around it and stopped
+      reading as pressable. `paintGlossyButtonBackground` takes a variant;
+      `GlossyButton` passes it through.
+      Also removed the specular dot `paintGloss` drew at a fixed fraction of
+      the height: fine on a narrow pill, but on a button as wide as "Next
+      Level" it landed in open field and read as a stray white speck — it is
+      visible in the screenshot that prompted this.
+      **The bug that cost the most time was not the one reported.** Two
+      passes went into "the gloss is too strong" before the real fault
+      turned out to be underneath it: stacked rounded rects cannot express a
+      band shorter than the corner radius, so the gradient's light bands
+      were square-cornered slabs overhanging the shape. Drawn as inset
+      horizontal strips now — see coding-hygiene.md.
+      Verified by screenshotting the real app (title, play, win) between
+      each pass rather than by assertion; the paint functions emit draw
+      calls whose real output is pixels.
+
+- [x] **The game sat right of center on desktop** (Aug 31, 2026). Reported
+      alongside the material rebuild. Two layout owners: `index.html`'s
+      `#app` is a flex centering box, _and_ Phaser's scale config asked for
+      `autoCenter: CENTER_BOTH`. Phaser's version sets a `margin-left` of
+      half the gutter on the canvas element, and flexbox then centers the
+      canvas _plus that margin_ — so the two compounded and pushed the game
+      right by half a gutter again. Invisible on a phone, where FIT leaves
+      no gutter to halve, which is why it survived this long. Phaser now
+      uses `NO_CENTER` and CSS owns centering alone.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

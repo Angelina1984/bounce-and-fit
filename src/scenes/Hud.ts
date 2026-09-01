@@ -159,8 +159,8 @@ export class Hud {
 
   private paintActionButton(hover: boolean): void {
     if (!this.actionButtonBg.visible) return;
-    const paddingX = 28;
-    const paddingY = 12;
+    const paddingX = 36;
+    const paddingY = 16;
     const w = this.actionText.width + paddingX * 2;
     const h = this.actionText.height + paddingY * 2 + BUTTON_DEPTH;
 

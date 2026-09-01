@@ -25,7 +25,12 @@ function startGame(): Phaser.Game {
     },
     scale: {
       mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
+      // Centering is index.html's job (#app is a flex centering box), so
+      // Phaser must not also do it. CENTER_BOTH sets a margin-left of half
+      // the gutter on the canvas, and flexbox then centers the canvas
+      // *plus that margin* — the two compound and the game sits visibly
+      // right of center. One owner per layout concern.
+      autoCenter: Phaser.Scale.NO_CENTER,
     },
     scene: [TitleScene, PrototypeScene],
   });

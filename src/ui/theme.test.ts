@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desaturateColor, shadeColor } from "./theme";
+import { desaturateColor, lerpColor, shadeColor } from "./theme";
 
 /**
  * Only the pure color math is unit-tested here — the paint functions issue
@@ -69,5 +69,28 @@ describe("desaturateColor", () => {
   it("clamps out-of-range amounts instead of inverting the mix", () => {
     expect(desaturateColor(GOLD, -1)).toBe(GOLD);
     expect(desaturateColor(GOLD, 5)).toBe(desaturateColor(GOLD, 1));
+  });
+});
+
+describe("lerpColor", () => {
+  it("returns each endpoint exactly at t=0 and t=1", () => {
+    expect(lerpColor(GOLD, 0x000000, 0)).toBe(GOLD);
+    expect(lerpColor(GOLD, 0x000000, 1)).toBe(0x000000);
+  });
+
+  it("lands on the channel-wise midpoint at t=0.5", () => {
+    expect(lerpColor(0x000000, 0xffffff, 0.5)).toBe(0x808080);
+    expect(lerpColor(0xff0000, 0x0000ff, 0.5)).toBe(0x800080);
+  });
+
+  it("clamps out-of-range t rather than extrapolating past the endpoints", () => {
+    // Every gradient strip derives its t from a position/height ratio, so a
+    // rounding overshoot must saturate rather than wrap a channel around.
+    expect(lerpColor(0x000000, 0xffffff, -3)).toBe(0x000000);
+    expect(lerpColor(0x000000, 0xffffff, 4)).toBe(0xffffff);
+  });
+
+  it("is symmetric — swapping the endpoints mirrors t", () => {
+    expect(lerpColor(GOLD, 0x102030, 0.25)).toBe(lerpColor(0x102030, GOLD, 0.75));
   });
 });

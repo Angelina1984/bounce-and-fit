@@ -41,7 +41,7 @@ export const GAME_WIDTH = 480;
 export const GAME_HEIGHT = 900;
 export const MIN_GAME_HEIGHT = 760;
 export const MAX_GAME_HEIGHT = 1100;
-export const BACKGROUND_COLOR = 0x2a1454;
+export const BACKGROUND_COLOR = 0x35196a;
 
 // Lives — see design brief §3. Catching the ball is free and unlimited;
 // only letting it fall past the paddle costs a life.
@@ -173,10 +173,22 @@ export const BRICK_TINT_NORMAL = BRICK_TINTS_BY_HITS[0];
 // glossy buttons built in ui/theme.ts. Scoped to HUD/title chrome for now;
 // bricks/paddle/ball tints below are a later pass — see the design brief's
 // "Prototype to Polish" reconciliation record.
-export const COLOR_PANEL_VIOLET = 0x3d2470;
-export const COLOR_GOLD = 0xf4c95d;
-export const COLOR_GOLD_LIGHT = 0xffe08a;
-export const COLOR_GOLD_DARK = 0xb9852a;
+// Saturated on purpose. The first pass picked a panel violet (0x3d2470)
+// only a shade off BACKGROUND_COLOR, so every badge and button sank into
+// the ground it sat on — the reference art gets its "candy" read from a
+// bright face against a deep ground, not from the outline around it.
+export const COLOR_PANEL_VIOLET = 0x5b2fc9;
+export const COLOR_GOLD = 0xffc93c;
+export const COLOR_GOLD_LIGHT = 0xffe8a3;
+// Deep amber rather than a muted brown-gold: it is the *bottom* of the rim
+// gradient, and a rim that darkens toward orange is what makes the gold
+// read as metal instead of as a yellow line.
+export const COLOR_GOLD_DARK = 0xd88a12;
+// Primary-action green. Gold is the chrome accent (rims, HUD readouts), so
+// a gold button is the same material as the frame around it and stops
+// reading as the thing to press — the reference screenshots put every
+// primary CTA in green inside a gold rim for exactly that reason.
+export const COLOR_BUTTON_GREEN = 0x6ecc22;
 
 // Every text object uses this. The quoted family comes from index.html's
 // Google Fonts link; the fallbacks matter because a missing webfont
@@ -187,8 +199,8 @@ export const FONT_FAMILY = '"Fredoka", "Trebuchet MS", "Segoe UI", sans-serif';
 // HUD / UI text colors
 export const TEXT_COLOR_WHITE = "#ffffff";
 export const TEXT_COLOR_MUTED = "#c9b8ea";
-export const TEXT_COLOR_GOLD = "#f4c95d";
+export const TEXT_COLOR_GOLD = "#ffd75e";
 // Dark violet outline stroke for bold text sitting on busy/bright
 // backgrounds (pill badges, glossy buttons) — matches BACKGROUND_COLOR's
 // hue rather than its exact hex, since the two could diverge.
-export const TEXT_COLOR_OUTLINE = "#241242";
+export const TEXT_COLOR_OUTLINE = "#1d0f3d";

@@ -238,6 +238,32 @@ and `update()`. Split it before it becomes unreadable, not after:
   `paintPillBackground()` (clears, then draws one). When a helper both
   resets and draws, the reset is the part that stops composing; keep them
   separable from the start.
+- **Two centering owners compound; they do not agree.** `#app` centered the
+  canvas with flexbox while Phaser's scale config asked for
+  `autoCenter: CENTER_BOTH`. Phaser centers by setting a `margin-left` on
+  the canvas, and flexbox then centers the canvas *plus its margin*, so the
+  game sat half a gutter right of center on desktop and looked fine on a
+  phone (FIT leaves no gutter there to halve). When a framework and the page
+  both offer to do a layout job, pick one and say so where the other one
+  would have been configured.
+- **A gradient cannot be faked with stacked rounded rects.** The obvious
+  way to fake a vertical gradient in Phaser Graphics (no gradient fill) is
+  to stack rounded rects of decreasing height. It does not work: a band
+  shorter than the corner radius has no rounded-rect form that stays inside
+  the silhouette, so the light bands at the top of a face came out
+  square-cornered and overhung the shape — and on a pill, where the radius
+  is half the height, *every* band is shorter than the radius. Draw
+  horizontal strips inset to follow the corner curve instead, over one exact
+  rounded-rect fill in a mid tone so the shape keeps its antialiased edge.
+  The tell was visible in a screenshot long before it was understood; two
+  tuning passes went into "the gloss is too strong" before the actual bug
+  turned out to be the geometry underneath it.
+- **A rim has to be a filled frame, not a stroked line.** Strokes center on
+  the path, so half the width falls outside the shape and reads as a
+  hairline. Worse, the version here stroked *inside* the fill, leaving a
+  band of face color outside the gold border — the "why do the lines look
+  cheap" complaint was that, not the color. Fill the rim across the whole
+  footprint and inset the face on top of it.
 - **A per-frame HUD update needs a change guard, not just cheap drawing.**
   The booster countdowns tick from `update()`, but `Text.setText()`
   re-rasterizes the label's texture — doing that 60×/second to render the
