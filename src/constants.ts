@@ -131,6 +131,15 @@ export const FAST_BALL_DURATION_MS = 5000;
 // reward is worse than no reward. Catching one at full lives still pays the
 // catch bonus, so it is never a punishment either — just not a life.
 export const EXTRA_LIFE_GAIN = 1;
+// Extra Life is placed on every 5th level — 5, 10, 15, 20 — and nowhere
+// else. A life back on every level makes the lives constraint decorative,
+// and §3 is explicit that boosters "help the player spend lives more
+// intelligently, not erase the constraint". Spacing it out makes reaching
+// one a milestone rather than a refill, and it lands exactly where the
+// challenge ramp has already started biting (CHALLENGE_START_LEVEL_INDEX
+// is level 5 too — the first level that asks for more is also the first
+// that pays for it). Enforced by validateLevels(), not just by convention.
+export const EXTRA_LIFE_LEVEL_INTERVAL = 5;
 
 // Big Ball
 export const BIG_BALL_MULTIPLIER = 1.6;

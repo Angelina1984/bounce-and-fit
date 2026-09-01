@@ -425,15 +425,37 @@ test.describe("Fast Ball", () => {
 });
 
 test.describe("Extra Life", () => {
+  // Level 5 is the first level that carries one — every 5th level and no
+  // other (EXTRA_LIFE_LEVEL_INTERVAL). Getting there through the real
+  // Next Level flow is also what proves the rule holds in the built grid,
+  // not just in the level data.
+  const EXTRA_LIFE_LEVEL_INDEX = 4;
+
+  test("is absent from the early levels and present on level 5", async ({ page }) => {
+    await startGame(page);
+    const carries = () =>
+      page.evaluate(() =>
+        window.__game.scene
+          .getScene("prototype")
+          .bricks.getChildren()
+          .some((b: any) => b.getData("starPowerUp") === "extra-life"),
+      );
+
+    expect(await carries()).toBe(false);
+    await advanceToLevel(page, EXTRA_LIFE_LEVEL_INDEX);
+    expect(await carries()).toBe(true);
+  });
+
   test("gives a life back, icon and all, after one has been lost", async ({ page }) => {
     await startGame(page);
+    await advanceToLevel(page, EXTRA_LIFE_LEVEL_INDEX);
     await page.evaluate(() => {
       const s = window.__game.scene.getScene("prototype");
       s.livesRemaining = 3;
       s.hud.setLives(3);
     });
 
-    await catchStarPowerUp(page, "extra-life");
+    expect(await catchStarPowerUp(page, "extra-life")).toBe(true);
 
     const after = await getPrototypeScene(page);
     expect(after.lives).toBe(4);
@@ -445,10 +467,15 @@ test.describe("Extra Life", () => {
   // invisible — and an invisible reward reads as the booster being broken.
   test("is capped at the full life count rather than going past the icon row", async ({ page }) => {
     await startGame(page);
+    await advanceToLevel(page, EXTRA_LIFE_LEVEL_INDEX);
+    await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      s.livesRemaining = 5;
+      s.hud.setLives(5);
+    });
     const before = await getPrototypeScene(page);
-    expect(before.lives).toBe(5);
 
-    await catchStarPowerUp(page, "extra-life");
+    expect(await catchStarPowerUp(page, "extra-life")).toBe(true);
 
     const after = await getPrototypeScene(page);
     expect(after.lives).toBe(5);
@@ -503,22 +530,30 @@ test.describe("Mystery", () => {
 
   test("its brick shows a question mark, and Extra Life's shows a star", async ({ page }) => {
     await startGame(page);
-    const glyphs = await page.evaluate(() =>
-      window.__game.scene
-        .getScene("prototype")
-        .bricks.getChildren()
-        .map((b: any) => {
-          const type = b.getData("starPowerUp");
-          const text = b.getData("glyphText");
-          return type && text ? { type, glyph: text.text } : null;
-        })
-        .filter(Boolean),
-    );
+    const glyphs = () =>
+      page.evaluate(() =>
+        window.__game.scene
+          .getScene("prototype")
+          .bricks.getChildren()
+          .map((b: any) => {
+            const type = b.getData("starPowerUp");
+            const text = b.getData("glyphText");
+            return type && text ? { type, glyph: text.text } : null;
+          })
+          .filter(Boolean),
+      );
 
-    expect(glyphs).toContainEqual({ type: "mystery", glyph: "?" });
-    expect(glyphs).toContainEqual({ type: "extra-life", glyph: "★" });
+    // Level 1 has no Extra Life to draw a star for, so Mystery is the only
+    // symbol on the board — which is itself the placement rule showing up
+    // in the rendered grid.
+    expect(await glyphs()).toEqual([{ type: "mystery", glyph: "?" }]);
+
+    await advanceToLevel(page, 4); // level 5, the first with an Extra Life
+    const onLevelFive = await glyphs();
+    expect(onLevelFive).toContainEqual({ type: "mystery", glyph: "?" });
+    expect(onLevelFive).toContainEqual({ type: "extra-life", glyph: "★" });
     // Only those two carry one — every other star brick is bare.
-    expect(glyphs.map((g: any) => g.type).sort()).toEqual(["extra-life", "mystery"]);
+    expect(onLevelFive.map((g: any) => g.type).sort()).toEqual(["extra-life", "mystery"]);
   });
 
   // The glyph is a separate game object from the tinted brick image, so it

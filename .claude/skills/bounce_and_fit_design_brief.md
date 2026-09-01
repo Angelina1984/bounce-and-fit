@@ -100,8 +100,8 @@ Settled by putting the drop on the *same* challenge ramp the ball already uses, 
 | **Extra Ball** | Star (caught) | Adds 1 more ball in play; all balls share the same lives — losing an extra ball costs nothing, only losing the *last* ball costs a life | Until that ball is individually lost | Blue |
 | **Double Ball** | Star (caught) | Adds 2 more balls in play, compounding with whatever's already there (not a jump to a fixed total — see below) | Until each ball is individually lost | Medium blue |
 | **Triple Ball** | Star (caught) | Adds 3 more balls in play, same compounding rule as Double Ball | Until each ball is individually lost | Deep blue |
-| **Extra Life** | Star (caught) | +1 life, capped at MAX_LIVES | Permanent (a run-wide resource, not a timed effect) | Warm gold, plus a **★ drawn on the brick face** |
-| **Mystery** | Star (caught) | Resolves at catch time to a random booster from the catalog — never a hazard, never another Mystery | Whatever the resolved booster's is | Vivid purple, plus a **? drawn on the brick face** |
+| **Extra Life** | Star (caught) | +1 life, capped at MAX_LIVES. **Every 5th level only** — see below | Permanent (a run-wide resource, not a timed effect) | Warm gold, plus a **★ drawn on the brick face** |
+| **Mystery** | Star (caught) | Resolves at catch time to a random booster from the catalog — never a hazard, never another Mystery, never an Extra Life | Whatever the resolved booster's is | Vivid purple, plus a **? drawn on the brick face** |
 | **Paddle Cut in Half** | Hazard (destroyed) | Paddle width ×0.5 | 3 seconds (real time) | Red |
 | **Freeze Paddle** | Hazard (destroyed) | Paddle ignores input entirely | 3 seconds (real time) | Icy blue |
 | **Catch & Aim** | Star (caught) | Ball sticks to the paddle on contact instead of bouncing; player repositions, then releases with a tap to fire an aimed shot | 5 seconds (real time) | Magenta |
@@ -246,6 +246,10 @@ Sequenced deliberately as **chrome first, gameplay sprites second**, even though
 ### Extra Life and Mystery, and the first symbols on brick faces (Aug 31, 2026)
 
 **Extra Life** is the only booster that touches a *run-wide* resource rather than the ball or the paddle. Capped at `MAX_LIVES`: the HUD draws exactly that many icons, so a sixth life would be invisible, and an invisible reward reads as a broken booster. Catching one at full lives still pays the catch bonus, so it is never a punishment — just not a life.
+
+**Extra Life appears on every 5th level only — 5, 10, 15, 20 — and nowhere else** (`EXTRA_LIFE_LEVEL_INTERVAL`, `levelGrantsExtraLife()`). A life back on every level makes the lives constraint decorative, and §3 is explicit that boosters "help the player spend lives more intelligently, not erase the constraint": a refill available every level erases it. Spacing them out makes reaching one a milestone, and the interval lands the first at exactly the level where the challenge ramp starts biting (`CHALLENGE_START_LEVEL_INDEX` is level 5 too) — the first level that asks for more is also the first that pays for it. With six levels built, that means level 5 carries the only one.
+
+The rule is enforced by `validateLevels()` in both directions rather than left to convention: a stray Extra Life on level 2 quietly erases the constraint, and a *missing* one on level 10 quietly makes a run harder than designed. Neither is visible by reading the level data. **Mystery's outcome table excludes Extra Life for the same reason** — a "?" on level 2 that could roll one is a back door around the rule, rare but enough to make the rule untrue, and a scarcity rule that leaks is not a scarcity rule. That is a one-line change if Mystery should be a jackpot instead.
 
 **Mystery** resolves at *catch* time, not at spawn, so what falls is genuinely unknown until it lands. Its table is boosters only — never a hazard, never another Mystery. §3's "a star brick is always good" has zero exceptions, and Mystery sits on a star brick: a "?" that could freeze the paddle would break the single guarantee the whole star/hazard split exists to protect. The resolved booster goes through `apply()` normally, so the HUD badge names what it became — the badge *is* the reveal.
 

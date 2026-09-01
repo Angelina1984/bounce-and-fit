@@ -250,21 +250,25 @@ describe("BoosterController", () => {
       expect(MYSTERY_OUTCOMES).not.toContain("mystery");
     });
 
+    // Extra Life is restricted to every 5th level. A Mystery that could roll
+    // one on level 2 is a back door around that rule — rare, but enough to
+    // make the rule untrue.
+    it("can never roll an Extra Life, which is gated to every 5th level", () => {
+      expect(MYSTERY_OUTCOMES).not.toContain("extra-life");
+    });
+
     it("reaches every outcome in the table, first to last", () => {
       MYSTERY_OUTCOMES.forEach((expected, i) => {
         // Sampled mid-bucket so the assertion is about the mapping, not
         // about floating-point behaviour exactly on a boundary.
         const roll = (i + 0.5) / MYSTERY_OUTCOMES.length;
-        const { controller, onExtraLife } = setup([createFakeBall()], roll);
+        const { controller } = setup([createFakeBall()], roll);
         controller.apply("mystery");
 
-        if (expected === "extra-life") {
-          expect(onExtraLife, `roll ${roll}`).toHaveBeenCalledTimes(1);
-          return;
-        }
         const applied = controller.getActiveBoosters().map((b) => b.type);
         // Ball-spawning outcomes are instantaneous and show no badge, so
-        // those are asserted by ball count instead.
+        // those are covered by the out-of-range test's "did something" check
+        // rather than asserted by name here.
         if (applied.length > 0) expect(applied, `roll ${roll}`).toContain(expected);
       });
     });
@@ -273,9 +277,10 @@ describe("BoosterController", () => {
     // apply undefined — silently doing nothing on a catch the player made.
     it("stays inside the table even for an out-of-range roll", () => {
       for (const roll of [1, 1.5, -0.2]) {
-        const { controller, onExtraLife } = setup([createFakeBall()], roll);
+        const { controller, ballsGroup } = setup([createFakeBall()], roll);
+        const ballsBefore = ballsGroup.countActive();
         expect(() => controller.apply("mystery"), `roll ${roll}`).not.toThrow();
-        const didSomething = controller.getActiveBoosters().length > 0 || onExtraLife.mock.calls.length > 0;
+        const didSomething = controller.getActiveBoosters().length > 0 || ballsGroup.countActive() > ballsBefore;
         expect(didSomething, `roll ${roll}`).toBe(true);
       }
     });

@@ -865,6 +865,35 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       have thrown at runtime on the first Extra Life. The cast is what let a
       required dependency go missing silently.
 
+- [x] **Extra Life restricted to every 5th level** (Aug 31, 2026). "Make
+      sure not every level gets extra life. Starting level 5 they will get
+      it on certain levels, level 10, level 15, level 20 — let's document
+      that (x5 — every 5th level)."
+      `EXTRA_LIFE_LEVEL_INTERVAL = 5` plus `levelGrantsExtraLife()` in
+      `gameplayMath`, so the 0-indexed/1-indexed off-by-one lives in exactly
+      one place — the promise to the player is "levels 5, 10, 15, 20", and
+      the code indexes from 0. Data updated: only Burn Through (level 5)
+      keeps its Extra Life.
+      **Enforced in `validateLevels()`, in both directions**, rather than
+      left to the level data being written correctly. A stray Extra Life on
+      level 2 quietly erases the lives constraint; a _missing_ one on level
+      10 quietly makes the run harder than designed. Neither is visible by
+      reading the data, and the existing `validateLevels(LEVELS)` test now
+      fails on either.
+      **The rule had a back door I closed at the same time:** Mystery's
+      outcome table included `extra-life`, so a "?" on level 2 could hand
+      one out — roughly 1 in 11 catches, rare but enough to make the
+      documented rule untrue. Removed. This is a judgment call on the
+      user's intent rather than something they asked for directly, and it is
+      a one-line revert if Mystery should be a jackpot instead.
+      `levelGrantsExtraLife` treats a non-positive interval as "never", not
+      "always": `n % 0` is NaN, which compares false, so the modulo alone
+      would turn the rule off by accident rather than by decision.
+      The E2E tests written for Extra Life all assumed level 1 and had to
+      move to level 5 via the real Next Level flow — which is a better test
+      than they were, since it now also proves the rule survives into the
+      built grid rather than only living in the level data.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

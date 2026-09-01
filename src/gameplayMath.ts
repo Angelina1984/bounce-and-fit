@@ -100,3 +100,21 @@ export function gameHeightForViewport(
   if (viewportWidth <= 0 || viewportHeight <= 0) return minHeight;
   return Math.round(clamp((designWidth * viewportHeight) / viewportWidth, minHeight, maxHeight));
 }
+
+/**
+ * Whether a given (0-indexed) level carries an Extra Life star brick.
+ *
+ * Every `interval`-th level counting from 1, so with the default interval of
+ * 5 that is levels 5, 10, 15, 20 — and no others. Takes the interval rather
+ * than reading the constant so the rule can be tested at other spacings, and
+ * so `validateLevels` can check level data against the same single
+ * definition the game plays by.
+ *
+ * A non-positive interval means "never", not "every level": `n % 0` is NaN,
+ * which compares false and would silently turn the rule off for every level
+ * rather than reporting anything.
+ */
+export function levelGrantsExtraLife(levelIndex: number, interval: number): boolean {
+  if (interval <= 0) return false;
+  return (levelIndex + 1) % interval === 0;
+}

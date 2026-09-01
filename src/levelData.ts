@@ -4,7 +4,8 @@
  * live in a browser.
  */
 
-import { BRICK_COLS, BRICK_ROWS, MAX_BRICK_HITS } from "./constants";
+import { BRICK_COLS, BRICK_ROWS, EXTRA_LIFE_LEVEL_INTERVAL, MAX_BRICK_HITS } from "./constants";
+import { levelGrantsExtraLife } from "./gameplayMath";
 
 // Boosters live on star bricks and are always positive — catching one is
 // optional and never required to clear a level. Hazards live on a separate,
@@ -150,7 +151,6 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 1, powerUp: "burning-ball" },
       { row: 5, col: 6, powerUp: "extra-ball" },
       { row: 1, col: 3, powerUp: "double-ball" },
-      { row: 2, col: 4, powerUp: "extra-life" },
       { row: 4, col: 3, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
@@ -180,7 +180,6 @@ export const LEVELS: LevelDef[] = [
       { row: 5, col: 6, powerUp: "burning-ball" },
       { row: 0, col: 1, powerUp: "extra-ball" },
       { row: 3, col: 4, powerUp: "double-ball" },
-      { row: 3, col: 1, powerUp: "extra-life" },
       { row: 4, col: 5, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 0, hazard: "narrow-paddle" }],
@@ -215,7 +214,6 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 6, powerUp: "burning-ball" },
       { row: 5, col: 3, powerUp: "extra-ball" },
       { row: 3, col: 6, powerUp: "double-ball" },
-      { row: 2, col: 3, powerUp: "extra-life" },
       { row: 4, col: 2, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
@@ -249,7 +247,6 @@ export const LEVELS: LevelDef[] = [
       { row: 3, col: 5, powerUp: "burning-ball" },
       { row: 5, col: 1, powerUp: "extra-ball" },
       { row: 1, col: 3, powerUp: "double-ball" },
-      { row: 2, col: 4, powerUp: "extra-life" },
       { row: 4, col: 5, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 2, hazard: "narrow-paddle" }],
@@ -327,7 +324,6 @@ export const LEVELS: LevelDef[] = [
       { row: 5, col: 5, powerUp: "burning-ball" },
       { row: 1, col: 5, powerUp: "extra-ball" },
       { row: 3, col: 5, powerUp: "double-ball" },
-      { row: 2, col: 5, powerUp: "extra-life" },
       { row: 5, col: 4, powerUp: "mystery" },
     ],
     hazardBricks: [
@@ -376,6 +372,7 @@ export function validateLevels(
   maxStarBricks = 14,
   maxHazardBricks = 4,
   maxBrickHits: number = MAX_BRICK_HITS,
+  extraLifeInterval: number = EXTRA_LIFE_LEVEL_INTERVAL,
 ): LevelValidationIssue[] {
   const issues: LevelValidationIssue[] = [];
 
@@ -434,6 +431,21 @@ export function validateLevels(
         levelIndex,
         levelName: level.name,
         message: `${level.hazardBricks.length} hazard bricks exceeds the max of ${maxHazardBricks}`,
+      });
+    }
+
+    // Extra Life is deliberately scarce — every EXTRA_LIFE_LEVEL_INTERVAL-th
+    // level and nowhere else (see the constant). Checked in both directions
+    // on purpose: a stray one on level 2 quietly erases the lives
+    // constraint, and a missing one on level 10 quietly makes the run
+    // harder than designed. Neither is visible by reading the level data.
+    const extraLives = level.starBricks.filter((s) => s.powerUp === "extra-life").length;
+    const expected = levelGrantsExtraLife(levelIndex, extraLifeInterval) ? 1 : 0;
+    if (extraLives !== expected) {
+      issues.push({
+        levelIndex,
+        levelName: level.name,
+        message: `has ${extraLives} Extra Life star bricks, expected ${expected} — Extra Life belongs on every ${extraLifeInterval}th level only`,
       });
     }
   });

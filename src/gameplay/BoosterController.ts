@@ -74,6 +74,13 @@ export interface BoosterControllerDeps {
  * could freeze the paddle would break the one guarantee the whole star/hazard
  * split exists to protect. Excludes "mystery" itself, which would otherwise
  * be able to roll into a chain that resolves nothing.
+ *
+ * Also excludes "extra-life", which is not about hazards at all: Extra Life
+ * is deliberately restricted to every 5th level
+ * (EXTRA_LIFE_LEVEL_INTERVAL). A Mystery on level 2 that could roll one
+ * would be a back door around that rule — rare, but enough to make the rule
+ * untrue, and a scarcity rule that leaks is not a scarcity rule. Putting it
+ * back is a one-line change if Mystery should be a jackpot instead.
  */
 export const MYSTERY_OUTCOMES: BoosterType[] = [
   "wide-paddle",
@@ -86,7 +93,6 @@ export const MYSTERY_OUTCOMES: BoosterType[] = [
   "triple-ball",
   "sticky-paddle",
   "foresight",
-  "extra-life",
 ];
 
 /**

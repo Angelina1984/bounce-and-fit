@@ -105,6 +105,40 @@ describe("validateLevels", () => {
   });
 });
 
+describe("validateLevels — Extra Life placement", () => {
+  const bare = (name: string, starBricks: { row: number; col: number; powerUp: "extra-life" | "mystery" }[]) => ({
+    name,
+    starBricks,
+    hazardBricks: [],
+    toughBricks: [],
+    skip: [],
+  });
+
+  const messages = (levels: Parameters<typeof validateLevels>[0], interval: number) =>
+    validateLevels(levels, BRICK_COLS, BRICK_ROWS, 14, 4, undefined, interval).map((i) => i.message);
+
+  it("flags an Extra Life on a level that should not have one", () => {
+    const levels = [bare("Level 1", [{ row: 0, col: 0, powerUp: "extra-life" }])];
+    expect(messages(levels, 5).join(" ")).toContain("has 1 Extra Life star bricks, expected 0");
+  });
+
+  // The opposite direction matters just as much: a level 10 that quietly
+  // lost its Extra Life is a run that is harder than designed, and nothing
+  // on screen would say so.
+  it("flags a qualifying level that is missing its Extra Life", () => {
+    const levels = [bare("Level 1", []), bare("Level 2", [])];
+    expect(messages(levels, 2).join(" ")).toContain("has 0 Extra Life star bricks, expected 1");
+  });
+
+  it("accepts data that matches the rule", () => {
+    const levels = [
+      bare("Level 1", [{ row: 0, col: 0, powerUp: "mystery" }]),
+      bare("Level 2", [{ row: 0, col: 0, powerUp: "extra-life" }]),
+    ];
+    expect(messages(levels, 2)).toEqual([]);
+  });
+});
+
 describe("LEVELS content", () => {
   // The pacing set. A level was reported as taking too long and playing
   // boring, and these five are the boosters that answer that directly:
@@ -122,19 +156,27 @@ describe("LEVELS content", () => {
     }
   });
 
-  // The two that draw a symbol on the brick face. Both are on every level:
-  // a "?" the player only meets on some levels teaches nothing, and Extra
-  // Life is the only way to get a life back, so a level without one is a
-  // level where a mistake is permanent.
-  it("puts Extra Life and Mystery on every level", () => {
+  // Mystery is on every level: a "?" the player only meets on some levels
+  // teaches nothing.
+  it("puts Mystery on every level", () => {
     for (const level of LEVELS) {
-      for (const booster of ["extra-life", "mystery"] as const) {
-        expect(
-          level.starBricks.some((s) => s.powerUp === booster),
-          `${level.name} should carry ${booster}`,
-        ).toBe(true);
-      }
+      expect(
+        level.starBricks.some((s) => s.powerUp === "mystery"),
+        `${level.name} should carry mystery`,
+      ).toBe(true);
     }
+  });
+
+  // Extra Life is the exception: every 5th level and nowhere else, so that
+  // reaching one is a milestone rather than a refill. validateLevels()
+  // enforces this against the real data (see the suite above); this pins
+  // the concrete shape of it so the intent survives a level being added.
+  it("puts Extra Life on level 5 only, of the levels that exist so far", () => {
+    const levelsWithExtraLife = LEVELS.map((level, i) =>
+      level.starBricks.some((s) => s.powerUp === "extra-life") ? i + 1 : null,
+    ).filter((n): n is number => n !== null);
+
+    expect(levelsWithExtraLife).toEqual([5]);
   });
 
   it("keeps Triple Ball to one per level — it is the strongest of the three", () => {

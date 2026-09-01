@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ballSpeedForLevel,
+  levelGrantsExtraLife,
   powerUpDropSpeedForLevel,
   gameHeightForViewport,
   bounceOffsetToAngleRad,
@@ -135,5 +136,36 @@ describe("powerUpDropSpeedForLevel", () => {
 
   it("caps at the ball even when the base already starts above it", () => {
     expect(powerUpDropSpeedForLevel(0, 900, 420, 4, 0.9)).toBe(420);
+  });
+});
+
+describe("levelGrantsExtraLife", () => {
+  // Levels are 0-indexed here and 1-indexed on screen, which is exactly the
+  // off-by-one this function exists to hold in one place: the rule the
+  // player was promised is "levels 5, 10, 15, 20".
+  it("grants on every 5th level counting from 1, and no other", () => {
+    const granted = Array.from({ length: 20 }, (_, i) => (levelGrantsExtraLife(i, 5) ? i + 1 : null)).filter(Boolean);
+    expect(granted).toEqual([5, 10, 15, 20]);
+  });
+
+  it("never grants on the first level, however the interval is set", () => {
+    for (const interval of [1, 2, 5, 10]) {
+      expect(levelGrantsExtraLife(0, interval), `interval ${interval}`).toBe(interval === 1);
+    }
+  });
+
+  it("honours a different interval", () => {
+    const granted = Array.from({ length: 9 }, (_, i) => (levelGrantsExtraLife(i, 3) ? i + 1 : null)).filter(Boolean);
+    expect(granted).toEqual([3, 6, 9]);
+  });
+
+  // `n % 0` is NaN, which compares false — so a zero interval has to be
+  // handled deliberately. Left to the modulo it would read as "never" by
+  // accident rather than by decision, and a negative one likewise.
+  it("means never, not always, for a non-positive interval", () => {
+    for (const levelIndex of [0, 4, 9, 99]) {
+      expect(levelGrantsExtraLife(levelIndex, 0), `level ${levelIndex}`).toBe(false);
+      expect(levelGrantsExtraLife(levelIndex, -5), `level ${levelIndex}`).toBe(false);
+    }
   });
 });
