@@ -9,8 +9,10 @@ import {
   BRICK_WIDTH,
   TEXTURE_KEY_TILE,
   BRICK_TINTS_BY_HITS,
+  TEXT_COLOR_OUTLINE,
 } from "../constants";
-import { POWER_UP_TINTS } from "../levelData";
+import { POWER_UP_GLYPHS, POWER_UP_TINTS } from "../levelData";
+import { outlinedTextStyle } from "../ui/theme";
 import type { LevelDef } from "../levelData";
 
 /**
@@ -55,6 +57,20 @@ export function buildBrickGrid(scene: Phaser.Scene, bricks: Phaser.Physics.Arcad
       brick.setData("maxHits", hits);
 
       brick.refreshBody();
+
+      // Bricks whose booster carries a symbol get it drawn on the face. The
+      // Text is a separate game object (a tinted Image can't show a glyph),
+      // so the brick owns a reference to it and PrototypeScene#handleBrickHit
+      // destroys the pair together — a glyph left behind would float over
+      // an empty cell for the rest of the level.
+      const glyph = starPowerUp && POWER_UP_GLYPHS[starPowerUp];
+      if (glyph) {
+        const label = scene.add
+          .text(x, y, glyph, outlinedTextStyle("18px", 2, `#${TEXT_COLOR_OUTLINE.slice(1)}`))
+          .setOrigin(0.5)
+          .setDepth(brick.depth + 1);
+        brick.setData("glyphText", label);
+      }
     }
   }
 }

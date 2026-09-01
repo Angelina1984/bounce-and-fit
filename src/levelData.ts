@@ -21,7 +21,9 @@ export type BoosterType =
   | "sticky-paddle"
   | "foresight"
   | "double-ball"
-  | "triple-ball";
+  | "triple-ball"
+  | "extra-life"
+  | "mystery";
 export type HazardType = "narrow-paddle" | "freeze-paddle";
 export type PowerUpType = BoosterType | HazardType;
 
@@ -40,6 +42,8 @@ export const POWER_UP_TINTS: Record<PowerUpType, number> = {
   foresight: 0xc7c7f5,
   "double-ball": 0x3d8bff,
   "triple-ball": 0x1f5fcc,
+  "extra-life": 0xffd166,
+  mystery: 0x8b3dff,
 };
 
 export const POWER_UP_LABELS: Record<PowerUpType, string> = {
@@ -55,6 +59,27 @@ export const POWER_UP_LABELS: Record<PowerUpType, string> = {
   foresight: "Foresight",
   "double-ball": "Double Ball",
   "triple-ball": "Triple Ball",
+  "extra-life": "Extra Life",
+  mystery: "Mystery",
+};
+
+/**
+ * A symbol drawn on the brick itself, for the boosters whose payload can't
+ * be inferred from anything else on screen.
+ *
+ * Only two carry one. Extra Life is the single booster that changes a
+ * *run-wide* resource rather than the ball or the paddle, and Mystery has no
+ * fixed effect at all — for both, the gold "this is a star brick" tint says
+ * nothing about what you are about to get, and for Mystery that is exactly
+ * the point: the "?" is the feature.
+ *
+ * This is also the first step toward the icon cue §7 has wanted for a while
+ * (color must never be a booster's only signal). The other boosters still
+ * lean on the falling chip's tint alone — unfinished, not decided against.
+ */
+export const POWER_UP_GLYPHS: Partial<Record<PowerUpType, string>> = {
+  "extra-life": "★",
+  mystery: "?",
 };
 
 export interface StarBrickDef {
@@ -95,15 +120,16 @@ export interface LevelDef {
 // stay a purely structural property, independent of the catch mechanic —
 // no star/hazard ever needs 2 hits to actually trigger.
 //
-// 12 star bricks per level, up from 8, raised because a level was reported
-// as taking too long and playing boring. The extra four are deliberately
-// the *pace* boosters rather than four more of everything: a second
-// multi-ball, an Extra Ball, a Burning Ball (which pierces a whole column)
-// and the new Fast Ball. Duplicates within a level are intentional and
-// allowed — a level having two Burning Balls is more fire, which is the
-// point. Each level still rotates out exactly one of the original 7
-// boosters (never a hazard), and Double Ball and Triple Ball are on every
-// level unconditionally.
+// 14 star bricks per level, up from 8. The first four added were the *pace*
+// set — a second multi-ball, an Extra Ball, a Burning Ball (which pierces a
+// whole column) and Fast Ball — raised because a level was reported as
+// taking too long and playing boring. The last two are Extra Life and
+// Mystery, the only boosters that carry a symbol on the brick face (see
+// POWER_UP_GLYPHS). Duplicates within a level are intentional and allowed —
+// a level having two Burning Balls is more fire, which is the point. Each
+// level still rotates out exactly one of the original 7 boosters (never a
+// hazard), and Double Ball and Triple Ball are on every level
+// unconditionally.
 // Freeze Paddle is reserved for the last level only (Gauntlet) rather than
 // appearing everywhere — it's a harsher hazard (paddle ignores input
 // entirely) than Paddle Cut, so it's held back as part of that level's
@@ -124,6 +150,8 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 1, powerUp: "burning-ball" },
       { row: 5, col: 6, powerUp: "extra-ball" },
       { row: 1, col: 3, powerUp: "double-ball" },
+      { row: 2, col: 4, powerUp: "extra-life" },
+      { row: 4, col: 3, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -152,6 +180,8 @@ export const LEVELS: LevelDef[] = [
       { row: 5, col: 6, powerUp: "burning-ball" },
       { row: 0, col: 1, powerUp: "extra-ball" },
       { row: 3, col: 4, powerUp: "double-ball" },
+      { row: 3, col: 1, powerUp: "extra-life" },
+      { row: 4, col: 5, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 0, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -185,6 +215,8 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 6, powerUp: "burning-ball" },
       { row: 5, col: 3, powerUp: "extra-ball" },
       { row: 3, col: 6, powerUp: "double-ball" },
+      { row: 2, col: 3, powerUp: "extra-life" },
+      { row: 4, col: 2, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -217,6 +249,8 @@ export const LEVELS: LevelDef[] = [
       { row: 3, col: 5, powerUp: "burning-ball" },
       { row: 5, col: 1, powerUp: "extra-ball" },
       { row: 1, col: 3, powerUp: "double-ball" },
+      { row: 2, col: 4, powerUp: "extra-life" },
+      { row: 4, col: 5, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 2, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -254,6 +288,8 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 1, powerUp: "burning-ball" },
       { row: 5, col: 5, powerUp: "extra-ball" },
       { row: 3, col: 4, powerUp: "double-ball" },
+      { row: 2, col: 3, powerUp: "extra-life" },
+      { row: 4, col: 4, powerUp: "mystery" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -291,6 +327,8 @@ export const LEVELS: LevelDef[] = [
       { row: 5, col: 5, powerUp: "burning-ball" },
       { row: 1, col: 5, powerUp: "extra-ball" },
       { row: 3, col: 5, powerUp: "double-ball" },
+      { row: 2, col: 5, powerUp: "extra-life" },
+      { row: 5, col: 4, powerUp: "mystery" },
     ],
     hazardBricks: [
       { row: 4, col: 2, hazard: "narrow-paddle" },
@@ -335,7 +373,7 @@ export function validateLevels(
   levels: LevelDef[],
   cols: number = BRICK_COLS,
   rows: number = BRICK_ROWS,
-  maxStarBricks = 12,
+  maxStarBricks = 14,
   maxHazardBricks = 4,
   maxBrickHits: number = MAX_BRICK_HITS,
 ): LevelValidationIssue[] {

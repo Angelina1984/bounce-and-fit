@@ -30,7 +30,7 @@ import {
 } from "../constants";
 import { clamp, degToRad } from "../gameplayMath";
 import { POWER_UP_LABELS, POWER_UP_TINTS } from "../levelData";
-import type { PowerUpType } from "../levelData";
+import type { BoosterType, PowerUpType } from "../levelData";
 
 /** One active timed effect, as the HUD needs to draw it. */
 export interface ActiveBooster {
@@ -54,9 +54,40 @@ export interface BoosterControllerDeps {
    * clamp a spawned ball's speed against this, not the flat BALL_SPEED
    * constant, so a spawn on a later, faster level doesn't get capped too low. */
   getBallSpeed: () => number;
+  /** Extra Life's payload. Lives belong to the scene — every other booster
+   * acts on the ball or the paddle, which this controller owns outright — so
+   * this is routed back out rather than reached for. */
+  onExtraLife: () => void;
+  /** Mystery's roll. Injectable purely so a test can pin it: with Math.random
+   * there is no way to assert *which* booster a Mystery resolved to, only
+   * that it resolved to something. Defaults to Math.random. */
+  random?: () => number;
   /** Called after any state change (applied, decayed, reset) so the HUD can refresh. */
   onChange: () => void;
 }
+
+/**
+ * What a Mystery brick can turn into.
+ *
+ * Boosters only, never a hazard. §3's rule that "a star brick is always
+ * good" has zero exceptions, and Mystery lives on a star brick — a "?" that
+ * could freeze the paddle would break the one guarantee the whole star/hazard
+ * split exists to protect. Excludes "mystery" itself, which would otherwise
+ * be able to roll into a chain that resolves nothing.
+ */
+export const MYSTERY_OUTCOMES: BoosterType[] = [
+  "wide-paddle",
+  "slow-ball",
+  "fast-ball",
+  "big-ball",
+  "burning-ball",
+  "extra-ball",
+  "double-ball",
+  "triple-ball",
+  "sticky-paddle",
+  "foresight",
+  "extra-life",
+];
 
 /**
  * Owns every booster and hazard's state, application, and reset — pulled
@@ -168,6 +199,18 @@ export class BoosterController {
         });
         break;
 
+      case "extra-life":
+        this.deps.onExtraLife();
+        break;
+
+      case "mystery":
+        // Resolved here rather than at spawn time, so what the player sees
+        // fall is genuinely unknown until it lands. The resolved booster then
+        // goes through apply() normally, which is what puts its real name on
+        // the HUD badge — the reveal is the badge.
+        this.apply(this.rollMystery());
+        break;
+
       case "slow-ball":
         this.setBallSpeedEffect("slow-ball", SLOW_BALL_MULTIPLIER, SLOW_BALL_DURATION_MS);
         break;
@@ -231,6 +274,15 @@ export class BoosterController {
         break;
     }
     this.deps.onChange();
+  }
+
+  /** Picks a Mystery's payload. Clamped rather than trusted: a random()
+   * that returns exactly 1 (or anything out of range) would index past the
+   * end of the array and apply `undefined`. */
+  private rollMystery(): BoosterType {
+    const roll = this.deps.random?.() ?? Math.random();
+    const index = Math.floor(clamp(roll, 0, 0.999999) * MYSTERY_OUTCOMES.length);
+    return MYSTERY_OUTCOMES[index];
   }
 
   /**

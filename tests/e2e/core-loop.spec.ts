@@ -99,7 +99,9 @@ test.describe("Core loop", () => {
 
     let state = await getPrototypeScene(page);
     expect(state.state).toBe(GAME_STATE.LOST);
-    expect(state.actionText).toBe("Tap to retry");
+    // Not "retry": running out of lives ends the *run*, and the button
+    // restarts from level 1 rather than replaying the level that was lost.
+    expect(state.actionText).toBe("Start Over");
 
     await clickActionButton(page);
     await page.waitForTimeout(200);

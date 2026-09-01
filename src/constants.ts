@@ -125,6 +125,13 @@ export const SLOW_BALL_DURATION_MS = 3000;
 export const FAST_BALL_MULTIPLIER = 1.5;
 export const FAST_BALL_DURATION_MS = 5000;
 
+// Extra Life — the only booster that touches a run-wide resource. Capped at
+// MAX_LIVES rather than allowed to run past it: the HUD draws exactly
+// MAX_LIVES ball icons, so a sixth life would be invisible, and an invisible
+// reward is worse than no reward. Catching one at full lives still pays the
+// catch bonus, so it is never a punishment either — just not a life.
+export const EXTRA_LIFE_GAIN = 1;
+
 // Big Ball
 export const BIG_BALL_MULTIPLIER = 1.6;
 export const BIG_BALL_DURATION_MS = 6000;

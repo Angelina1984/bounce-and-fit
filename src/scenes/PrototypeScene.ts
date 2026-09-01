@@ -14,6 +14,7 @@ import {
   ARENA_MARGIN_X,
   ARENA_TOP,
   BALL_SERVE_OFFSET_Y,
+  EXTRA_LIFE_GAIN,
   BRICK_TINTS_BY_HITS,
   BALL_SPEED,
   BALL_TINT,
@@ -206,6 +207,11 @@ export class PrototypeScene extends Phaser.Scene {
       getPrimaryBall: () => this.primaryBall,
       createBall: (x, y) => this.createBallSprite(x, y),
       getBallSpeed: () => this.ballSpeed,
+      // Lives are the scene's, not the controller's — every other booster
+      // acts on the ball or the paddle, which the controller owns outright.
+      // Routing this through a dep keeps apply() the single funnel for
+      // "a booster was caught" rather than special-casing one type upstream.
+      onExtraLife: () => this.grantExtraLife(),
       onChange: () => this.hud.setBoosters(this.boosters.getActiveBoosters()),
     });
 
@@ -383,9 +389,22 @@ export class PrototypeScene extends Phaser.Scene {
     this.scoring.registerBrickDestroyed((brickImage.getData("maxHits") as number | undefined) ?? 1);
     this.hud.setScore(this.scoring.score);
     brickBurst(this, brickImage.x, brickImage.y, brickImage.tintTopLeft);
+    // The star/question-mark drawn on the brick is its own game object, not
+    // part of the tinted image, so it has to go with it.
+    (brickImage.getData("glyphText") as Phaser.GameObjects.Text | undefined)?.destroy();
     brickImage.destroy();
 
     if (this.bricks.countActive(true) === 0) this.endLevel(GAME_STATE.WON);
+  }
+
+  /** Extra Life's payload. Capped at MAX_LIVES because the HUD draws
+   * exactly that many icons — a sixth life would be invisible, and an
+   * invisible reward reads as a bug. Catching one at full lives is still
+   * worth the catch bonus, so it is never a punishment, just not a life. */
+  private grantExtraLife(): void {
+    if (this.livesRemaining >= MAX_LIVES) return;
+    this.livesRemaining += EXTRA_LIFE_GAIN;
+    this.hud.setLives(this.livesRemaining);
   }
 
   private spawnPowerUp(x: number, y: number, type: BoosterType): void {
@@ -633,12 +652,16 @@ export class PrototypeScene extends Phaser.Scene {
       // to sum, so the best belongs here where it can be compared directly
       // against the score that just ended.
       const { best, isNewBest } = recordScore(globalThis.localStorage, this.scoring.score);
-      this.hud.showMessage(isNewBest ? "Out of lives — new best!" : "Out of lives");
+      this.hud.showMessage(isNewBest ? "Game over — new best!" : "Game over");
       this.hud.showScoreBreakdown([
         ["Final score", this.scoring.score.toLocaleString()],
         ["Personal best", best.toLocaleString()],
       ]);
-      this.hud.setAction("Tap to retry", () => {
+      // "Start Over", not "Tap to retry" — reported as misleading, and it
+      // was: the button restarts the whole run from level 1, and a player
+      // who lost on level 6 read "retry" as another go at level 6. Lives are
+      // a run-wide resource, so running out ends the run, not the level.
+      this.hud.setAction("Start Over", () => {
         this.levelIndex = 0;
         // A fresh run: no carryScore, so the next create() starts at 0.
         this.scene.restart({ carryLives: false });

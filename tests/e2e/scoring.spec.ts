@@ -211,7 +211,7 @@ test.describe("Scoring", () => {
 
       expect(await storedBest(page)).toBe("999999");
       const ended = await getPrototypeScene(page);
-      expect(ended.messageText).toBe("Out of lives");
+      expect(ended.messageText).toBe("Game over");
       expect(ended.breakdownText).toContain("999,999");
     });
 

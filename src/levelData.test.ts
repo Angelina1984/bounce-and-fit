@@ -122,6 +122,21 @@ describe("LEVELS content", () => {
     }
   });
 
+  // The two that draw a symbol on the brick face. Both are on every level:
+  // a "?" the player only meets on some levels teaches nothing, and Extra
+  // Life is the only way to get a life back, so a level without one is a
+  // level where a mistake is permanent.
+  it("puts Extra Life and Mystery on every level", () => {
+    for (const level of LEVELS) {
+      for (const booster of ["extra-life", "mystery"] as const) {
+        expect(
+          level.starBricks.some((s) => s.powerUp === booster),
+          `${level.name} should carry ${booster}`,
+        ).toBe(true);
+      }
+    }
+  });
+
   it("keeps Triple Ball to one per level — it is the strongest of the three", () => {
     for (const level of LEVELS) {
       const tripleBalls = level.starBricks.filter((s) => s.powerUp === "triple-ball");

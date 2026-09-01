@@ -100,6 +100,8 @@ Settled by putting the drop on the *same* challenge ramp the ball already uses, 
 | **Extra Ball** | Star (caught) | Adds 1 more ball in play; all balls share the same lives — losing an extra ball costs nothing, only losing the *last* ball costs a life | Until that ball is individually lost | Blue |
 | **Double Ball** | Star (caught) | Adds 2 more balls in play, compounding with whatever's already there (not a jump to a fixed total — see below) | Until each ball is individually lost | Medium blue |
 | **Triple Ball** | Star (caught) | Adds 3 more balls in play, same compounding rule as Double Ball | Until each ball is individually lost | Deep blue |
+| **Extra Life** | Star (caught) | +1 life, capped at MAX_LIVES | Permanent (a run-wide resource, not a timed effect) | Warm gold, plus a **★ drawn on the brick face** |
+| **Mystery** | Star (caught) | Resolves at catch time to a random booster from the catalog — never a hazard, never another Mystery | Whatever the resolved booster's is | Vivid purple, plus a **? drawn on the brick face** |
 | **Paddle Cut in Half** | Hazard (destroyed) | Paddle width ×0.5 | 3 seconds (real time) | Red |
 | **Freeze Paddle** | Hazard (destroyed) | Paddle ignores input entirely | 3 seconds (real time) | Icy blue |
 | **Catch & Aim** | Star (caught) | Ball sticks to the paddle on contact instead of bouncing; player repositions, then releases with a tap to fire an aimed shot | 5 seconds (real time) | Magenta |
@@ -241,9 +243,19 @@ Sequenced deliberately as **chrome first, gameplay sprites second**, even though
 
 **Still open, and the right next question for this phase:** §7's accessibility positioning means color alone must never be the only signal for a booster's or hazard's identity. The tint-only scheme survived the restyle untouched, so that concern is unchanged, not resolved — a shape or icon cue per booster is still worth doing before the MVP locks.
 
-### Pacing: 12 star bricks per level (Aug 31, 2026)
+### Extra Life and Mystery, and the first symbols on brick faces (Aug 31, 2026)
 
-Reported as "the game is taking too long and is boring", with the fix proposed in the same breath: more boosters per level, multi-balls and fire in particular. Star bricks went from 8 per level to 12 (`validateLevels`'s `maxStarBricks` raised to match), and the four added to every level are deliberately the *pace* set rather than four more of everything — a second Double Ball, an Extra Ball, a Burning Ball, and the new Fast Ball. Three of those put more balls on the field, one pierces a whole column, one speeds the ball up. Duplicates within a level are intentional and allowed: a level with two Burning Balls is more fire, which is the point.
+**Extra Life** is the only booster that touches a *run-wide* resource rather than the ball or the paddle. Capped at `MAX_LIVES`: the HUD draws exactly that many icons, so a sixth life would be invisible, and an invisible reward reads as a broken booster. Catching one at full lives still pays the catch bonus, so it is never a punishment — just not a life.
+
+**Mystery** resolves at *catch* time, not at spawn, so what falls is genuinely unknown until it lands. Its table is boosters only — never a hazard, never another Mystery. §3's "a star brick is always good" has zero exceptions, and Mystery sits on a star brick: a "?" that could freeze the paddle would break the single guarantee the whole star/hazard split exists to protect. The resolved booster goes through `apply()` normally, so the HUD badge names what it became — the badge *is* the reveal.
+
+**These two are the first bricks to carry a symbol on their face** (`POWER_UP_GLYPHS`), and that is a first step toward the per-booster icon cue §7 has wanted since the tint-only scheme survived the art pass. They earn one ahead of the others because the gold "this is a star brick" tint says nothing about a payload that is either a life or unknown — and for Mystery the "?" is not a cue, it is the feature. **The rest of the catalog still leans on the falling chip's tint alone**; that concern is unchanged, not resolved.
+
+**"Tap to retry" was renamed "Start Over"** in the same pass, reported after losing the last life on level 6. Lives are run-wide, so running out ends the *run* — the button always restarts from level 1, and "retry" read as another go at the level just lost. The message says "Game over" rather than "Out of lives" for the same reason.
+
+### Pacing: 14 star bricks per level (Aug 31, 2026)
+
+Reported as "the game is taking too long and is boring", with the fix proposed in the same breath: more boosters per level, multi-balls and fire in particular. Star bricks went from 8 per level to 12 — and then to 14 once Extra Life and Mystery landed (`validateLevels`'s `maxStarBricks` raised to match). The four added for pacing are deliberately the *pace* set rather than four more of everything — a second Double Ball, an Extra Ball, a Burning Ball, and the new Fast Ball. Three of those put more balls on the field, one pierces a whole column, one speeds the ball up. Duplicates within a level are intentional and allowed: a level with two Burning Balls is more fire, which is the point.
 
 **What this does not change is the brick count**, and that is the other half of the same complaint. A level is still a 7×8 grid — up to 56 bricks, plus the extra hits the tough bricks carry — and if a level still drags after the booster density lands, the grid is the lever, not more boosters. It is a bigger change than it sounds: every level's star, hazard and tough bricks are addressed by row/column, so shrinking the grid means re-laying out all six levels by hand rather than editing one constant.
 

@@ -423,3 +423,118 @@ test.describe("Fast Ball", () => {
     expect(active.multiplier).toBeCloseTo(FAST_BALL_MULTIPLIER);
   });
 });
+
+test.describe("Extra Life", () => {
+  test("gives a life back, icon and all, after one has been lost", async ({ page }) => {
+    await startGame(page);
+    await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      s.livesRemaining = 3;
+      s.hud.setLives(3);
+    });
+
+    await catchStarPowerUp(page, "extra-life");
+
+    const after = await getPrototypeScene(page);
+    expect(after.lives).toBe(4);
+    // The icon row is the actual readout, so it has to move too.
+    expect(after.lifeIconsVisible).toBe(4);
+  });
+
+  // The HUD draws exactly MAX_LIVES icons, so a life past the cap would be
+  // invisible — and an invisible reward reads as the booster being broken.
+  test("is capped at the full life count rather than going past the icon row", async ({ page }) => {
+    await startGame(page);
+    const before = await getPrototypeScene(page);
+    expect(before.lives).toBe(5);
+
+    await catchStarPowerUp(page, "extra-life");
+
+    const after = await getPrototypeScene(page);
+    expect(after.lives).toBe(5);
+    expect(after.lifeIconsVisible).toBe(5);
+    // Still paid for the catch, so a full-lives catch is never a punishment.
+    expect(after.score).toBeGreaterThan(before.score);
+  });
+});
+
+test.describe("Mystery", () => {
+  test("resolves to a real booster on catch, and never to a hazard", async ({ page }) => {
+    await startGame(page);
+
+    // Rolled for real (Math.random in the browser), so this asserts the
+    // contract — something good happened — rather than a fixed outcome.
+    // Repeated, because a single roll proves very little about a table.
+    for (let attempt = 0; attempt < 12; attempt++) {
+      const before = await getPrototypeScene(page);
+      const caught = await page.evaluate(() => {
+        const s = window.__game.scene.getScene("prototype");
+        // Below full lives, so an Extra Life roll actually registers. At the
+        // cap it is correctly a no-op, which would look here like a Mystery
+        // that resolved to nothing.
+        s.livesRemaining = 2;
+        const ballsBefore = s.balls.countActive(true);
+        const livesBefore = s.livesRemaining;
+        s.boosters.apply("mystery");
+        return {
+          active: s.boosters.getActiveBoosters().map((b: { type: string }) => b.type),
+          ballsGained: s.balls.countActive(true) - ballsBefore,
+          livesGained: s.livesRemaining - livesBefore,
+        };
+      });
+
+      // Every outcome is one of: a timed effect (badge), more balls, or a life.
+      const didSomething = caught.active.length > 0 || caught.ballsGained > 0 || caught.livesGained > 0;
+      expect(didSomething, `attempt ${attempt}: ${JSON.stringify(caught)}`).toBe(true);
+      expect(caught.active).not.toContain("mystery");
+      expect(caught.active).not.toContain("narrow-paddle");
+      expect(caught.active).not.toContain("freeze-paddle");
+
+      // A hazard would also show up as a shrunken paddle, which the badge
+      // list alone would miss if it were ever applied without one.
+      const after = await getPrototypeScene(page);
+      expect(after.paddleWidthState, `attempt ${attempt}`).not.toBe("narrow");
+      expect(after.paddleFrozen, `attempt ${attempt}`).toBe(false);
+      expect(before.lives).toBeGreaterThan(0);
+
+      await page.evaluate(() => window.__game.scene.getScene("prototype").boosters.resetAll());
+    }
+  });
+
+  test("its brick shows a question mark, and Extra Life's shows a star", async ({ page }) => {
+    await startGame(page);
+    const glyphs = await page.evaluate(() =>
+      window.__game.scene
+        .getScene("prototype")
+        .bricks.getChildren()
+        .map((b: any) => {
+          const type = b.getData("starPowerUp");
+          const text = b.getData("glyphText");
+          return type && text ? { type, glyph: text.text } : null;
+        })
+        .filter(Boolean),
+    );
+
+    expect(glyphs).toContainEqual({ type: "mystery", glyph: "?" });
+    expect(glyphs).toContainEqual({ type: "extra-life", glyph: "★" });
+    // Only those two carry one — every other star brick is bare.
+    expect(glyphs.map((g: any) => g.type).sort()).toEqual(["extra-life", "mystery"]);
+  });
+
+  // The glyph is a separate game object from the tinted brick image, so it
+  // does not get destroyed for free — one left behind floats over an empty
+  // cell for the rest of the level.
+  test("the symbol is destroyed along with its brick", async ({ page }) => {
+    await startGame(page);
+    const orphaned = await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      const brick = s.bricks.getChildren().find((b: any) => b.getData("starPowerUp") === "mystery");
+      const glyph = brick.getData("glyphText");
+      s.handleBrickHit(s.primaryBall, brick);
+      return { active: glyph.active, stillOnDisplayList: s.children.list.includes(glyph) };
+    });
+
+    expect(orphaned.active).toBe(false);
+    expect(orphaned.stillOnDisplayList).toBe(false);
+  });
+});

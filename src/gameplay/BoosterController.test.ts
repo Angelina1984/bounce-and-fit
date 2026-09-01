@@ -13,7 +13,7 @@ import {
   WIDE_PADDLE_DURATION_MS,
   WIDE_PADDLE_MULTIPLIER,
 } from "../constants";
-import { BoosterController, type BoosterControllerDeps } from "./BoosterController";
+import { BoosterController, MYSTERY_OUTCOMES, type BoosterControllerDeps } from "./BoosterController";
 
 /**
  * BoosterController is Phaser-injected, not Phaser-instantiated (see
@@ -102,11 +102,12 @@ function createFakeSceneClock() {
   };
 }
 
-function setup(initialBalls: FakeBall[] = [createFakeBall()]) {
+function setup(initialBalls: FakeBall[] = [createFakeBall()], roll = 0) {
   const paddle = createFakePaddle();
   const ballsGroup = createFakeBallsGroup(initialBalls);
   const clock = createFakeSceneClock();
   const onChange = vi.fn();
+  const onExtraLife = vi.fn();
   const primaryBall = initialBalls[0];
 
   const deps = {
@@ -119,11 +120,23 @@ function setup(initialBalls: FakeBall[] = [createFakeBall()]) {
       return ball;
     },
     getBallSpeed: () => BALL_SPEED,
+    onExtraLife,
+    // Pinned rather than random: with Math.random a Mystery test could only
+    // assert that *something* was applied, never which booster.
+    random: () => roll,
     onChange,
   } as unknown as BoosterControllerDeps;
 
   const controller = new BoosterController(deps);
-  return { controller, paddle, ballsGroup, primaryBall, fireAllPending: clock.fireAllPending, onChange };
+  return {
+    controller,
+    paddle,
+    ballsGroup,
+    primaryBall,
+    fireAllPending: clock.fireAllPending,
+    onChange,
+    onExtraLife,
+  };
 }
 
 describe("BoosterController", () => {
@@ -192,6 +205,79 @@ describe("BoosterController", () => {
 
       fireAllPending();
       expect(controller.paddleFrozen).toBe(false);
+    });
+  });
+
+  describe("extra-life", () => {
+    it("routes out to the scene, which is what owns lives", () => {
+      const { controller, onExtraLife } = setup();
+
+      controller.apply("extra-life");
+
+      expect(onExtraLife).toHaveBeenCalledTimes(1);
+    });
+
+    // It is not a timed effect, so it must not occupy a countdown badge —
+    // a badge counting down on a life already granted would be nonsense.
+    it("leaves no countdown badge behind", () => {
+      const { controller } = setup();
+
+      controller.apply("extra-life");
+
+      expect(controller.getActiveBoosters()).toEqual([]);
+    });
+  });
+
+  describe("mystery", () => {
+    it("resolves to a real booster and applies it for real", () => {
+      // roll 0 lands on the first outcome, whatever the table's order is.
+      const { controller } = setup([createFakeBall()], 0);
+      expect(MYSTERY_OUTCOMES[0]).toBe("wide-paddle");
+
+      controller.apply("mystery");
+
+      expect(controller.paddleWidthState).toBe("wide");
+      // The badge names what it became, not "Mystery" — the reveal is the badge.
+      expect(controller.getActiveBoosters().map((b) => b.type)).toEqual(["wide-paddle"]);
+    });
+
+    // §3's "a star brick is always good" has zero exceptions, and Mystery
+    // sits on a star brick. A "?" that could freeze the paddle would break
+    // the one guarantee the star/hazard split exists to protect.
+    it("can never roll a hazard, or another Mystery", () => {
+      expect(MYSTERY_OUTCOMES).not.toContain("narrow-paddle");
+      expect(MYSTERY_OUTCOMES).not.toContain("freeze-paddle");
+      expect(MYSTERY_OUTCOMES).not.toContain("mystery");
+    });
+
+    it("reaches every outcome in the table, first to last", () => {
+      MYSTERY_OUTCOMES.forEach((expected, i) => {
+        // Sampled mid-bucket so the assertion is about the mapping, not
+        // about floating-point behaviour exactly on a boundary.
+        const roll = (i + 0.5) / MYSTERY_OUTCOMES.length;
+        const { controller, onExtraLife } = setup([createFakeBall()], roll);
+        controller.apply("mystery");
+
+        if (expected === "extra-life") {
+          expect(onExtraLife, `roll ${roll}`).toHaveBeenCalledTimes(1);
+          return;
+        }
+        const applied = controller.getActiveBoosters().map((b) => b.type);
+        // Ball-spawning outcomes are instantaneous and show no badge, so
+        // those are asserted by ball count instead.
+        if (applied.length > 0) expect(applied, `roll ${roll}`).toContain(expected);
+      });
+    });
+
+    // A random() at or past 1 would index off the end of the table and
+    // apply undefined — silently doing nothing on a catch the player made.
+    it("stays inside the table even for an out-of-range roll", () => {
+      for (const roll of [1, 1.5, -0.2]) {
+        const { controller, onExtraLife } = setup([createFakeBall()], roll);
+        expect(() => controller.apply("mystery"), `roll ${roll}`).not.toThrow();
+        const didSomething = controller.getActiveBoosters().length > 0 || onExtraLife.mock.calls.length > 0;
+        expect(didSomething, `roll ${roll}`).toBe(true);
+      }
     });
   });
 

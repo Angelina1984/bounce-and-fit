@@ -826,6 +826,45 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       level is still up to 56 bricks plus tough-brick hits. If it still
       drags, the grid is the next lever — see the design brief.
 
+- [x] **Extra Life, Mystery, brick-face symbols, and "Start Over"**
+      (Aug 31, 2026). "Let's add another powerup - catching a extra life
+      showing a star inside block? another unknown powerup that shows a
+      question-mark in the block. On level 6 I lost last life: it showed
+      button Tap to retry. But it is really a game over, no retrying the
+      level, they have to start over from level 1."
+      (1) **Extra Life** — the only booster that touches a run-wide
+      resource, so it is the only one that can't live inside
+      `BoosterController` (which owns the ball and the paddle, not lives).
+      Routed back out through an `onExtraLife` dep so `apply()` stays the
+      single funnel for "a booster was caught". Capped at `MAX_LIVES`
+      because the HUD draws exactly that many icons — a sixth life would be
+      invisible, and an invisible reward reads as a broken booster. Still
+      pays the catch bonus at full lives, so it is never a punishment.
+      (2) **Mystery** — resolves at _catch_ time, not spawn, so what falls
+      is genuinely unknown. `MYSTERY_OUTCOMES` is boosters only: §3's "a
+      star brick is always good" has zero exceptions, and a "?" that could
+      freeze the paddle would break the one guarantee the star/hazard split
+      exists to protect. The roll is injected (`random` dep) purely so a
+      test can assert _which_ booster came out rather than only that
+      something did, and it is clamped — a `random()` returning exactly 1
+      would index past the table and apply `undefined`, silently doing
+      nothing on a catch the player earned.
+      (3) **Brick-face symbols** (`POWER_UP_GLYPHS`). The glyph is a
+      separate Text object, since a tinted Image can't show one — so the
+      brick holds a reference and `handleBrickHit` destroys the pair
+      together. A glyph left behind would float over an empty cell for the
+      rest of the level; there is an E2E test for exactly that.
+      (4) **"Tap to retry" → "Start Over"**, and "Out of lives" → "Game
+      over". The label was wrong, not just terse: lives are run-wide, so
+      running out ends the run and the button always restarts from level 1.
+      A player who lost on level 6 reasonably read "retry" as another go at
+      level 6.
+      **Caught by a cast, not by the compiler:** `BoosterController.test`'s
+      fake deps are `as unknown as BoosterControllerDeps`, so adding a
+      required `onExtraLife` did not fail typecheck — the fake would just
+      have thrown at runtime on the first Extra Life. The cast is what let a
+      required dependency go missing silently.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**
