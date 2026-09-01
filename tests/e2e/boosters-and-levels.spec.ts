@@ -294,7 +294,11 @@ test.describe("Level progression", () => {
     expect(speed).toBeGreaterThan(400); // BALL_SPEED is 420; a slowed serve would read ~252
   });
 
-  test("extra balls still in play when a level is won carry into the next level", async ({ page }) => {
+  // The counterpart to the booster test above: *nothing* earned inside a
+  // level crosses out of it. Lives and score still carry, because those are
+  // run-wide resources — a level that opened with three balls would be a
+  // level whose opening was decided by the previous one.
+  test("extra balls still in play when a level is won do not carry into the next level", async ({ page }) => {
     await startGame(page);
     await advanceToLevel(page, 3); // "Double Up" — Extra Ball
     expect((await getPrototypeScene(page)).levelText).toContain("Double Up");
@@ -311,6 +315,7 @@ test.describe("Level progression", () => {
     expect(await catchStarPowerUp(page, "extra-ball")).toBe(true);
     expect((await getPrototypeScene(page)).ballCount).toBe(2);
 
+    const beforeWin = await getPrototypeScene(page);
     await winCurrentLevel(page);
     await page.waitForTimeout(150);
     expect((await getPrototypeScene(page)).ballCount).toBe(2); // both survived to the win screen
@@ -320,18 +325,21 @@ test.describe("Level progression", () => {
 
     const state = await getPrototypeScene(page);
     expect(state.levelIndex).toBe(4);
-    expect(state.ballCount).toBe(2);
+    expect(state.ballCount).toBe(1);
+    // Lives and score are the two things that do cross the boundary.
+    expect(state.lives).toBe(beforeWin.lives);
+    expect(state.score).toBeGreaterThanOrEqual(beforeWin.score);
 
-    // Existence alone isn't proof either ball is actually playable — assert
-    // they're in a genuine, distinct serving formation (not stacked), and
-    // both get real velocity on the next tap.
-    const positions = await page.evaluate(() =>
-      window.__game.scene
-        .getScene("prototype")
-        .balls.getChildren()
-        .map((b: any) => b.x),
-    );
-    expect(new Set(positions).size).toBe(2);
+    // The single ball is a real, serveable one — not a leftover in a
+    // formation built for two, which is what a half-removed carry-over
+    // would leave behind.
+    const ball = await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      const b = s.balls.getChildren()[0];
+      return { x: b.x, paddleX: s.paddle.x, serveOffsetX: b.getData("serveOffsetX") };
+    });
+    expect(ball.serveOffsetX).toBe(0);
+    expect(ball.x).toBeCloseTo(ball.paddleX, 1);
 
     await tapToServe(page);
     await page.waitForTimeout(100);
@@ -341,8 +349,8 @@ test.describe("Level progression", () => {
         .balls.getChildren()
         .map((b: any) => Math.hypot(b.body.velocity.x, b.body.velocity.y)),
     );
-    expect(velocities).toHaveLength(2);
-    for (const speed of velocities) expect(speed).toBeGreaterThan(50);
+    expect(velocities).toHaveLength(1);
+    expect(velocities[0]).toBeGreaterThan(50);
   });
 });
 

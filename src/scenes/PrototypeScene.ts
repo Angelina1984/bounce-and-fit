@@ -64,15 +64,17 @@ interface PrototypeSceneData {
    * retry or "Play Again", which start a fresh run back at zero — score is
    * a run-wide resource, same as lives. */
   carryScore?: number;
-  /** Set alongside carryLives by "Next Level" only — how many balls beyond
-   * the primary (e.g. from Extra Ball) were still in play when the level
-   * was won, so create() can recreate them in the new level's serving
-   * formation. No booster/hazard state carries alongside this anymore —
-   * every one of them is a real-time timer now (see the design brief's
-   * reconciliation record), and real-time timers don't survive
-   * scene.restart() regardless of whether anything tries to snapshot them. */
-  extraBallCount?: number;
 }
+
+// Lives and score are the *only* two things that cross a level boundary,
+// and both are run-wide resources by design. Nothing a player earned inside
+// a level does: extra balls used to (an `extraBallCount` was snapshotted at
+// the win and rebuilt in the next level's serving formation) and no longer
+// do, and no booster or hazard ever did — every one of them is a real-time
+// timer now (see the design brief's reconciliation record), and real-time
+// timers don't survive scene.restart() regardless of whether anything tries
+// to snapshot them. Every level therefore opens the same way: one ball, no
+// effects running.
 
 export class PrototypeScene extends Phaser.Scene {
   private paddle!: Phaser.Physics.Arcade.Image;
@@ -183,15 +185,9 @@ export class PrototypeScene extends Phaser.Scene {
     // right physics from the group itself, not from a call that's about to
     // be undone.
     this.balls = this.physics.add.group({ collideWorldBounds: true, bounceX: 1, bounceY: 1 });
+    // Exactly one ball, every level, always — see PrototypeSceneData.
     this.primaryBall = this.createBallSprite(width / 2, this.ballServeY);
     this.balls.add(this.primaryBall);
-    // Recreate any balls beyond the primary that were still in play when the
-    // previous level was won (see endLevel()'s "Next Level" handler) — put
-    // back in serving formation like a fresh ball, not mid-flight, since
-    // every ball's velocity was already zeroed the moment that level ended.
-    for (let i = 0; i < (data.extraBallCount ?? 0); i++) {
-      this.balls.add(this.createBallSprite(width / 2, this.ballServeY));
-    }
     this.positionBallsForServe();
 
     this.bricks = this.physics.add.staticGroup();
@@ -283,8 +279,9 @@ export class PrototypeScene extends Phaser.Scene {
    * formation, each keeping a fixed offset from paddle center (stored as
    * GameObject data) so movePaddle() can keep them all following without
    * recomputing the formation on every pointer move. Used for the normal
-   * one-ball case (offset 0) and for balls carried over from a "Next Level"
-   * transition via Extra Ball (see create()'s extraBallCount handling). */
+   * one-ball case (offset 0) and for the multi-ball case within a level,
+   * where Extra Ball/Double Ball/Triple Ball have spawned and a life is then
+   * lost. Nothing carries across a level boundary — see create(). */
   private positionBallsForServe(): void {
     const balls = this.balls.getChildren() as Phaser.Physics.Arcade.Image[];
     const spacing = BALL_RADIUS * 3;
@@ -641,7 +638,6 @@ export class PrototypeScene extends Phaser.Scene {
         this.scene.restart({
           carryLives: carry,
           carryScore: carry ? this.scoring.score : undefined,
-          extraBallCount: carry ? Math.max(0, this.balls.countActive(true) - 1) : undefined,
         });
       });
     } else {
