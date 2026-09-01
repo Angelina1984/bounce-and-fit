@@ -894,6 +894,30 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       than they were, since it now also proves the rule survives into the
       built grid rather than only living in the level data.
 
+- [x] **Nothing carries across a level boundary except lives and score**
+      (Aug 31, 2026). "Let's not carry over to next level extra balls. It
+      resets to single ball. Same with other boosters. Let's not carry them
+      over."
+      Boosters and hazards already didn't — they became real-time timers on
+      Aug 30, and real-time timers don't survive `scene.restart()`, so that
+      half of the request was already true and is now just stated plainly in
+      the docs rather than implied by a mechanism.
+      Extra Ball's balls were the one remaining exception:
+      `PrototypeSceneData.extraBallCount` snapshotted how many were in play
+      at the win, and `create()` rebuilt them in the next level's serving
+      formation. Deleted — the field, the rebuild loop, and the snapshot at
+      the restart call.
+      The old reasoning ("a ball in play isn't a timed effect") was true and
+      the rule was still wrong: a level that opens with three balls is a
+      level whose opening was decided by the previous one, which makes the
+      same level a different level depending on what you caught thirty
+      seconds earlier — impossible to tune, impossible to compare.
+      The E2E test asserted the old behavior and was inverted rather than
+      deleted, and strengthened while it was open: it now also checks the
+      surviving ball has `serveOffsetX === 0` and sits on the paddle center,
+      because a half-removed carry-over would leave a single ball still
+      positioned in a formation built for two.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**
