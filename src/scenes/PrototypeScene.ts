@@ -2,7 +2,12 @@ import Phaser from "phaser";
 import { BoosterController } from "../gameplay/BoosterController";
 import { ScoreKeeper } from "../gameplay/ScoreKeeper";
 import { buildBrickGrid } from "../gameplay/brickGrid";
-import { ballSpeedForLevel, bounceOffsetToAngleRad, velocityFromAngle } from "../gameplayMath";
+import {
+  ballSpeedForLevel,
+  bounceOffsetToAngleRad,
+  powerUpDropSpeedForLevel,
+  velocityFromAngle,
+} from "../gameplayMath";
 import {
   BALL_RADIUS,
   ARENA_MARGIN_X,
@@ -23,6 +28,7 @@ import {
   PADDLE_WIDTH,
   PADDLE_BOTTOM_MARGIN,
   POWER_UP_DROP_SPEED,
+  POWER_UP_DROP_SPEED_STEP,
   SCENE_KEY_PROTOTYPE,
   POWER_UP_SIZE,
   TEXTURE_KEY_BALL,
@@ -91,6 +97,9 @@ export class PrototypeScene extends Phaser.Scene {
   // CHALLENGE_START_LEVEL_INDEX levels, then progressively faster from
   // there (see ballSpeedForLevel() and the design brief §3).
   private ballSpeed = BALL_SPEED;
+  // Recomputed in create() alongside ballSpeed, and capped by it — drops
+  // ride the same challenge ramp the ball does, from their own calm base.
+  private dropSpeed = POWER_UP_DROP_SPEED;
 
   constructor() {
     super(SCENE_KEY_PROTOTYPE);
@@ -136,6 +145,13 @@ export class PrototypeScene extends Phaser.Scene {
     this.state = GAME_STATE.SERVING;
     this.scoring = new ScoreKeeper(data.carryScore ?? 0);
     this.ballSpeed = ballSpeedForLevel(this.levelIndex, BALL_SPEED, CHALLENGE_START_LEVEL_INDEX, CHALLENGE_SPEED_STEP);
+    this.dropSpeed = powerUpDropSpeedForLevel(
+      this.levelIndex,
+      POWER_UP_DROP_SPEED,
+      this.ballSpeed,
+      CHALLENGE_START_LEVEL_INDEX,
+      POWER_UP_DROP_SPEED_STEP,
+    );
 
     this.paddle = this.physics.add
       .image(width / 2, this.paddleY, TEXTURE_KEY_PADDLE)
@@ -377,7 +393,7 @@ export class PrototypeScene extends Phaser.Scene {
     powerUp.setData("type", type);
     const body = powerUp.body as Phaser.Physics.Arcade.Body;
     body.setAllowGravity(false);
-    body.setVelocity(0, POWER_UP_DROP_SPEED);
+    body.setVelocity(0, this.dropSpeed);
   }
 
   private handlePowerUpCatch(_paddle: Collided, powerUp: Collided): void {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ballSpeedForLevel,
+  powerUpDropSpeedForLevel,
   gameHeightForViewport,
   bounceOffsetToAngleRad,
   clamp,
@@ -98,5 +99,41 @@ describe("gameHeightForViewport", () => {
   it("returns a usable height rather than 0 or NaN for a degenerate viewport", () => {
     expect(gameHeightForViewport(0, 0, 480, 700, 1100)).toBe(700);
     expect(gameHeightForViewport(-10, 500, 480, 700, 1100)).toBe(700);
+  });
+});
+
+describe("powerUpDropSpeedForLevel", () => {
+  // Levels 1-4 are the calm, all-ages zone; the ramp starts at index 4.
+  const BALL_AT = (levelIndex: number) => ballSpeedForLevel(levelIndex, 420, 4, 0.15);
+  const dropAt = (levelIndex: number) => powerUpDropSpeedForLevel(levelIndex, 170, BALL_AT(levelIndex), 4, 0.9);
+
+  it("holds the calm base through every pre-challenge level", () => {
+    expect(dropAt(0)).toBe(170);
+    expect(dropAt(3)).toBe(170);
+  });
+
+  it("climbs once the challenge levels begin", () => {
+    expect(dropAt(4)).toBeCloseTo(170 * 1.9);
+    expect(dropAt(5)).toBeCloseTo(170 * 2.8);
+  });
+
+  it("is slower than that level's ball everywhere it is not capped", () => {
+    for (const level of [0, 1, 2, 3, 4, 5]) {
+      expect(dropAt(level)).toBeLessThan(BALL_AT(level));
+    }
+  });
+
+  // The drop's step is steep enough to overtake the ball's if left to run,
+  // which would make a falling booster the fastest thing on screen — the
+  // opposite of the complaint that started this. The cap is what stops it,
+  // and it only starts biting on levels past the sixth.
+  it("never exceeds the ball, however far the ramp runs", () => {
+    for (const level of [6, 8, 12, 40]) {
+      expect(dropAt(level)).toBe(BALL_AT(level));
+    }
+  });
+
+  it("caps at the ball even when the base already starts above it", () => {
+    expect(powerUpDropSpeedForLevel(0, 900, 420, 4, 0.9)).toBe(420);
   });
 });

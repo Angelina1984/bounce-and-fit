@@ -41,9 +41,42 @@ export function ballSpeedForLevel(
   challengeStartLevelIndex: number,
   step: number,
 ): number {
+  return challengeRamp(levelIndex, baseSpeed, challengeStartLevelIndex, step);
+}
+
+/** The shared "flat, then climbing" curve the challenge levels run on. Two
+ * things ride it now — the ball and the booster drops — at their own base
+ * and their own step, so the shape lives in one place. */
+function challengeRamp(levelIndex: number, base: number, challengeStartLevelIndex: number, step: number): number {
   const challengeLevels = levelIndex - challengeStartLevelIndex + 1;
-  if (challengeLevels <= 0) return baseSpeed;
-  return baseSpeed * (1 + challengeLevels * step);
+  if (challengeLevels <= 0) return base;
+  return base * (1 + challengeLevels * step);
+}
+
+/**
+ * How fast a booster drop falls on a given (0-indexed) level.
+ *
+ * Same premise as the ball's ramp and the same trigger level: calm and
+ * unhurried while the game is still teaching, then a real coordination
+ * demand once a player has cleared the first levels and earned one. A drop
+ * at full ball speed from level 1 was the version that got rejected — it
+ * turns every star brick into a reflex test before anyone has agreed to
+ * take one.
+ *
+ * `step` is far steeper than the ball's because the base starts so much
+ * lower and has ground to make up. `levelBallSpeed` caps it: a drop that
+ * outran the ball would be the fastest thing on screen, which is not what
+ * "as fast as the ball" was ever asking for, and without the cap a steep
+ * step would do exactly that as soon as levels are added past the sixth.
+ */
+export function powerUpDropSpeedForLevel(
+  levelIndex: number,
+  baseDropSpeed: number,
+  levelBallSpeed: number,
+  challengeStartLevelIndex: number,
+  step: number,
+): number {
+  return Math.min(challengeRamp(levelIndex, baseDropSpeed, challengeStartLevelIndex, step), levelBallSpeed);
 }
 
 /**

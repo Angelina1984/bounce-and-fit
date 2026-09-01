@@ -78,17 +78,21 @@ export const BALL_SERVE_OFFSET_Y = PADDLE_HEIGHT / 2 + BALL_RADIUS + 4;
 
 // Power-up drop.
 //
-// Deliberately equal to BALL_SPEED, not the 130 it was: a drop that fell at
-// a third of the ball's speed read as floating. This *reverses* the design
-// brief's §3 "slow/readable drop speed", which existed to keep a catch
-// undemanding for the all-ages positioning (§7) — asked for and confirmed
-// with that tradeoff on the table, and the brief now records the reversal
-// rather than the original.
+// The base is the *calm* speed, used through the non-challenge levels, and
+// it ramps from CHALLENGE_START_LEVEL_INDEX on exactly like the ball does —
+// see powerUpDropSpeedForLevel(). Matching the ball from level 1 (which
+// this briefly did) made every star brick a reflex test before the game had
+// asked anyone for reflexes; 130 before that read as floating. This keeps
+// the design brief's §3 "readable drop" promise where it matters, in the
+// all-ages levels, and spends it deliberately where the player has already
+// proven the coordination.
 //
-// Flat rather than tracking ballSpeedForLevel(): the challenge ramp speeds
-// the *ball* up from level 5 on, and letting the drops ramp too would
-// compound a reflex demand onto the levels that are already the hardest.
-export const POWER_UP_DROP_SPEED = BALL_SPEED;
+// Concretely: 170 through levels 1-4, 323 on level 5, 476 on level 6 — and
+// never faster than that level's ball, which is what the cap is for.
+export const POWER_UP_DROP_SPEED = 170;
+// Steeper than CHALLENGE_SPEED_STEP because the drop starts at 40% of the
+// ball's speed and only has the challenge levels to close the gap in.
+export const POWER_UP_DROP_SPEED_STEP = 0.9;
 export const POWER_UP_SIZE = 16;
 
 // Every booster/hazard duration is real-time now (see the design brief's

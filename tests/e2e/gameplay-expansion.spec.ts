@@ -433,4 +433,34 @@ test.describe("Challenge speed ramp", () => {
     });
     expect(level5Speed).toBeGreaterThan(level1Speed);
   });
+
+  // Booster drops ride the same ramp from their own, much slower base: the
+  // point of the drop speed is that catching is undemanding while the game
+  // is still teaching, and becomes a real coordination demand only once a
+  // player has cleared the calm levels.
+  test("drops fall well below ball speed on level 1, and faster on level 5", async ({ page }) => {
+    const dropSpeed = () =>
+      page.evaluate(() => {
+        const s = window.__game.scene.getScene("prototype");
+        s.spawnPowerUp(s.scale.width / 2, 200, "wide-paddle");
+        const drop = s.powerUps.getChildren().at(-1);
+        const vy = drop.body.velocity.y;
+        drop.destroy();
+        return vy;
+      });
+
+    await startGame(page);
+    const level1Drop = await dropSpeed();
+    expect(level1Drop).toBeGreaterThan(0);
+    // Reading the real ball speed rather than a literal, so this keeps
+    // meaning "well below the ball" if either constant is retuned.
+    expect(level1Drop).toBeLessThan(BALL_SPEED * 0.6);
+
+    await advanceToLevel(page, 4); // level 5, where the ramp starts
+    const level5Drop = await dropSpeed();
+    expect(level5Drop).toBeGreaterThan(level1Drop);
+    // Capped by the ball it falls alongside — never the fastest thing on screen.
+    const level5Ball = await page.evaluate(() => window.__game.scene.getScene("prototype").ballSpeed);
+    expect(level5Drop).toBeLessThanOrEqual(level5Ball);
+  });
 });

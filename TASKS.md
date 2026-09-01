@@ -762,15 +762,28 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       and the Arcade body follows `setDisplaySize` (verified in the running
       app — displayHeight 10, body height 10). The intercept width is
       untouched.
-      `POWER_UP_DROP_SPEED` 130 → `BALL_SPEED` (420). **This reverses a
-      recorded design decision**, not just a number: §3's "slow/readable
-      drop speed" existed to keep a catch undemanding under §7's all-ages
-      positioning. Raised before changing it, confirmed with that tradeoff
-      stated, and the brief now records the reversal and what it costs
-      rather than the original. Kept flat rather than tracking
-      `ballSpeedForLevel()` so the challenge ramp doesn't speed drops up
-      alongside the ball on the levels that are already hardest — that
-      choice was the user's too.
+      `POWER_UP_DROP_SPEED` 130 → `BALL_SPEED` (420) — **and that overshot**,
+      corrected in the entry below. See there for where it landed.
+
+- [x] **Drops ride the challenge ramp instead of matching the ball flat**
+      (Aug 31, 2026). "Boosters coming down same speed as ball — it is too
+      fast, maybe we add this as a challenge on higher levels (as player
+      proves they are good at the game with coordination)."
+      Exactly the argument §3 already makes for the _ball's_ speed, so the
+      drop now rides the same curve rather than a new one:
+      `challengeRamp()` was extracted from `ballSpeedForLevel()` and
+      `powerUpDropSpeedForLevel()` was added over it, with its own base
+      (170, vs the ball's 420) and its own much steeper step (0.9 vs 0.15 —
+      it starts at 40% of the ball and has only the challenge levels to
+      close the gap in).
+      **The step is steep enough to overtake the ball if left to run**,
+      which would make a falling booster the fastest thing on screen — the
+      exact opposite of the complaint that started this, and it would bite
+      the moment a seventh level is added. Capped at the level's ball speed,
+      with a unit test that runs the ramp out to level 40 to prove the cap
+      holds rather than asserting only the levels that exist today.
+      Measured in the running app across all six levels: 170 (40% of ball)
+      on levels 1-4, 323 (67%) on level 5, 476 (87%) on level 6.
 
 ## Backlog
 
