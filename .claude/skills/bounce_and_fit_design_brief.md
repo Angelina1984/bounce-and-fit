@@ -74,11 +74,13 @@ The ×5 cap exists so Burning Ball (which can clear a whole column in one trip) 
 
 **Every active effect shows a countdown badge in the HUD** — a dot in its own color, its name, and whole seconds remaining. Once every booster became a real-time timer, "which effects are on" stopped being enough information: a player needs to know whether Wide Paddle has seven seconds left or half of one. Capped at four badges, which is all a single centered row fits at this width.
 
-**Score is run-wide, like lives.** It carries forward through "Next Level" and resets to zero on a retry or "Play Again" — a run's score is the score of that run.
+**Score is run-wide, like lives.** It carries forward through "Next Level" and resets to zero on a retry or "Play Again" — a run's score is the score of that run. The *personal best* is the one thing that outlives it (see below).
 
 **The level-clear screen names the level and shows a breakdown that sums to the total** — carried over, earned this level, clear bonus, lives bonus. Because the score is run-wide, a total alone can't tell a player what they just earned versus what they already had; a panel listing only the bonuses next to a much larger total reads as an error rather than a summary.
 
-**Deliberately not in yet:** no high-score persistence (that's `localStorage`, §6b MVP scope, not the ugly prototype), and no star ratings (see §5).
+**Personal best is persisted — the prototype's one exception to "no save state" (Aug 31, 2026).** §6b puts `localStorage` in MVP scope, not here, and that still holds for everything else. This one was asked for directly and earns the exception: the score is run-wide and vanishes when a run ends, so there was no number to beat and nothing to make a second run mean anything. Stored under one namespaced key, read on the title screen (shown only once a best exists — a "Best 0" badge advertises a scoreboard nobody has played for) and on the game-over screen next to the final score. Banked on every level clear rather than only at a run's end, since the score carries forward and a player who clears five levels then loses the sixth should keep what those five were worth. Announced only where a run *ends*: with no stored best every early clear is a record, so celebrating on the win screen would say "new best" almost every time and mean nothing.
+
+**Still deliberately not in:** star ratings (see §5), and the rest of §6b's save scope — level progress, settings, anything else.
 
 **Drop speed: on the challenge ramp, settled Aug 31, 2026.** Drops originally fell at a flat 130 against a ball speed of 420 — under a third of it — chosen so a catch would be undemanding for §7's all-ages positioning. In play that read as floating, so they were briefly set to the ball's speed outright; that overshot, because it turned every star brick into a reflex test from level 1, before the game has asked anyone for reflexes.
 
@@ -92,6 +94,7 @@ Settled by putting the drop on the *same* challenge ramp the ball already uses, 
 |---|---|---|---|---|
 | **Wide Paddle** | Star (caught) | +40% paddle width | 8 seconds (real time) | Teal |
 | **Slow Ball** | Star (caught) | Ball speed ×0.6 | 3 seconds (real time) | Violet |
+| **Fast Ball** | Star (caught) | Ball speed ×1.5 — clears faster and feeds the combo, at the cost of reaction time | 5 seconds (real time) | Hot red, deliberately far from Slow Ball's violet |
 | **Big Ball** | Star (caught) | Ball size ×1.6 (easier to hit bricks/paddle) | 6 seconds (real time) | Lime |
 | **Burning Ball** | Star (caught) | Passes through bricks without bouncing, destroying every brick in its path | 5 seconds (real time) | Orange, plus a matching tint on the ball itself as it burns |
 | **Extra Ball** | Star (caught) | Adds 1 more ball in play; all balls share the same lives — losing an extra ball costs nothing, only losing the *last* ball costs a life | Until that ball is individually lost | Blue |
@@ -237,6 +240,12 @@ Sequenced deliberately as **chrome first, gameplay sprites second**, even though
    **Still flat:** the bricks, paddle and ball still use pass 2's runtime textures, which bake the *old* flat-face treatment. Against the rebuilt chrome they now read as the least finished thing on screen — that's the next art item, not a regression.
 
 **Still open, and the right next question for this phase:** §7's accessibility positioning means color alone must never be the only signal for a booster's or hazard's identity. The tint-only scheme survived the restyle untouched, so that concern is unchanged, not resolved — a shape or icon cue per booster is still worth doing before the MVP locks.
+
+### Pacing: 12 star bricks per level (Aug 31, 2026)
+
+Reported as "the game is taking too long and is boring", with the fix proposed in the same breath: more boosters per level, multi-balls and fire in particular. Star bricks went from 8 per level to 12 (`validateLevels`'s `maxStarBricks` raised to match), and the four added to every level are deliberately the *pace* set rather than four more of everything — a second Double Ball, an Extra Ball, a Burning Ball, and the new Fast Ball. Three of those put more balls on the field, one pierces a whole column, one speeds the ball up. Duplicates within a level are intentional and allowed: a level with two Burning Balls is more fire, which is the point.
+
+**What this does not change is the brick count**, and that is the other half of the same complaint. A level is still a 7×8 grid — up to 56 bricks, plus the extra hits the tough bricks carry — and if a level still drags after the booster density lands, the grid is the lever, not more boosters. It is a bigger change than it sounds: every level's star, hazard and tough bricks are addressed by row/column, so shrinking the grid means re-laying out all six levels by hand rather than editing one constant.
 
 ### 6b. MVP (after the prototype validates the loop)
 

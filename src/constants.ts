@@ -114,6 +114,17 @@ export const FREEZE_PADDLE_DURATION_MS = 3000;
 export const SLOW_BALL_MULTIPLIER = 0.6;
 export const SLOW_BALL_DURATION_MS = 3000;
 
+// Fast Ball — Slow Ball's mirror, and the first booster in the catalog that
+// is a *trade* rather than a straight gift: a quicker ball clears bricks
+// faster and feeds the combo (which counts bricks per paddle trip, so a
+// faster ball rakes more per trip), at the cost of less time to read the
+// bounce. Kept at 1.5x rather than something wilder, and short, because §7's
+// all-ages positioning means the ceiling on "how fast is fun" is lower here
+// than in a reflex game. The two share one slot in BoosterController —
+// catching either replaces the other rather than multiplying with it.
+export const FAST_BALL_MULTIPLIER = 1.5;
+export const FAST_BALL_DURATION_MS = 5000;
+
 // Big Ball
 export const BIG_BALL_MULTIPLIER = 1.6;
 export const BIG_BALL_DURATION_MS = 6000;
@@ -153,6 +164,9 @@ export const SCORE_MAX_COMBO = 5;
 // which §3 explicitly forbids — the drop you don't catch still costs you
 // nothing, you just don't get the bonus.
 export const SCORE_PER_BOOSTER_CAUGHT = 25;
+// The one persisted key in the game. Namespaced because a dev build shares
+// localStorage with everything else served from the same origin.
+export const PERSONAL_BEST_STORAGE_KEY = "bounce-and-fit:personal-best";
 export const SCORE_LEVEL_CLEAR = 100;
 export const SCORE_PER_LIFE_REMAINING = 50;
 

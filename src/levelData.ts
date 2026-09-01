@@ -14,6 +14,7 @@ import { BRICK_COLS, BRICK_ROWS, MAX_BRICK_HITS } from "./constants";
 export type BoosterType =
   | "wide-paddle"
   | "slow-ball"
+  | "fast-ball"
   | "big-ball"
   | "burning-ball"
   | "extra-ball"
@@ -29,6 +30,9 @@ export const POWER_UP_TINTS: Record<PowerUpType, number> = {
   "narrow-paddle": 0xe0616c,
   "freeze-paddle": 0x8fd9f0,
   "slow-ball": 0xb98ce0,
+  // Hot red, deliberately far from Slow Ball's violet: these two are
+  // opposites and a player has to tell them apart at a glance mid-rally.
+  "fast-ball": 0xff3b6b,
   "big-ball": 0xc7e05d,
   "burning-ball": 0xff7a45,
   "extra-ball": 0x5da8ff,
@@ -43,6 +47,7 @@ export const POWER_UP_LABELS: Record<PowerUpType, string> = {
   "narrow-paddle": "Paddle Cut",
   "freeze-paddle": "Frozen Paddle",
   "slow-ball": "Slow Ball",
+  "fast-ball": "Fast Ball",
   "big-ball": "Big Ball",
   "burning-ball": "Burning Ball",
   "extra-ball": "Extra Ball",
@@ -88,11 +93,17 @@ export interface LevelDef {
 // are scattered per level rather than filling a reserved top row, and still
 // deliberately never carry a star/hazard, so a "tough" brick's extra hits
 // stay a purely structural property, independent of the catch mechanic —
-// no star/hazard ever needs 2 hits to actually trigger. Each level rotates out exactly one
-// of the original 7 boosters (never a hazard), plus Double Ball and Triple
-// Ball are added to every level unconditionally (not part of the rotation —
-// the user asked for one of each per level, every level) — 8 star bricks
-// total per level, exactly at validateLevels()'s maxStarBricks default.
+// no star/hazard ever needs 2 hits to actually trigger.
+//
+// 12 star bricks per level, up from 8, raised because a level was reported
+// as taking too long and playing boring. The extra four are deliberately
+// the *pace* boosters rather than four more of everything: a second
+// multi-ball, an Extra Ball, a Burning Ball (which pierces a whole column)
+// and the new Fast Ball. Duplicates within a level are intentional and
+// allowed — a level having two Burning Balls is more fire, which is the
+// point. Each level still rotates out exactly one of the original 7
+// boosters (never a hazard), and Double Ball and Triple Ball are on every
+// level unconditionally.
 // Freeze Paddle is reserved for the last level only (Gauntlet) rather than
 // appearing everywhere — it's a harsher hazard (paddle ignores input
 // entirely) than Paddle Cut, so it's held back as part of that level's
@@ -109,6 +120,10 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 4, powerUp: "sticky-paddle" },
       { row: 6, col: 2, powerUp: "double-ball" },
       { row: 6, col: 5, powerUp: "triple-ball" },
+      { row: 2, col: 6, powerUp: "fast-ball" },
+      { row: 4, col: 1, powerUp: "burning-ball" },
+      { row: 5, col: 6, powerUp: "extra-ball" },
+      { row: 1, col: 3, powerUp: "double-ball" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -133,6 +148,10 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 4, powerUp: "foresight" },
       { row: 6, col: 2, powerUp: "double-ball" },
       { row: 6, col: 5, powerUp: "triple-ball" },
+      { row: 4, col: 1, powerUp: "fast-ball" },
+      { row: 5, col: 6, powerUp: "burning-ball" },
+      { row: 0, col: 1, powerUp: "extra-ball" },
+      { row: 3, col: 4, powerUp: "double-ball" },
     ],
     hazardBricks: [{ row: 5, col: 0, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -162,6 +181,10 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 4, powerUp: "foresight" },
       { row: 6, col: 2, powerUp: "double-ball" },
       { row: 6, col: 5, powerUp: "triple-ball" },
+      { row: 2, col: 1, powerUp: "fast-ball" },
+      { row: 4, col: 6, powerUp: "burning-ball" },
+      { row: 5, col: 3, powerUp: "extra-ball" },
+      { row: 3, col: 6, powerUp: "double-ball" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -190,6 +213,10 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 7, powerUp: "foresight" },
       { row: 6, col: 2, powerUp: "double-ball" },
       { row: 6, col: 5, powerUp: "triple-ball" },
+      { row: 2, col: 1, powerUp: "fast-ball" },
+      { row: 3, col: 5, powerUp: "burning-ball" },
+      { row: 5, col: 1, powerUp: "extra-ball" },
+      { row: 1, col: 3, powerUp: "double-ball" },
     ],
     hazardBricks: [{ row: 5, col: 2, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -223,6 +250,10 @@ export const LEVELS: LevelDef[] = [
       { row: 4, col: 3, powerUp: "foresight" },
       { row: 6, col: 2, powerUp: "double-ball" },
       { row: 6, col: 5, powerUp: "triple-ball" },
+      { row: 1, col: 3, powerUp: "fast-ball" },
+      { row: 4, col: 1, powerUp: "burning-ball" },
+      { row: 5, col: 5, powerUp: "extra-ball" },
+      { row: 3, col: 4, powerUp: "double-ball" },
     ],
     hazardBricks: [{ row: 5, col: 1, hazard: "narrow-paddle" }],
     toughBricks: [
@@ -256,6 +287,10 @@ export const LEVELS: LevelDef[] = [
       { row: 3, col: 6, powerUp: "foresight" },
       { row: 6, col: 2, powerUp: "double-ball" },
       { row: 6, col: 5, powerUp: "triple-ball" },
+      { row: 5, col: 1, powerUp: "fast-ball" },
+      { row: 5, col: 5, powerUp: "burning-ball" },
+      { row: 1, col: 5, powerUp: "extra-ball" },
+      { row: 3, col: 5, powerUp: "double-ball" },
     ],
     hazardBricks: [
       { row: 4, col: 2, hazard: "narrow-paddle" },
@@ -300,7 +335,7 @@ export function validateLevels(
   levels: LevelDef[],
   cols: number = BRICK_COLS,
   rows: number = BRICK_ROWS,
-  maxStarBricks = 8,
+  maxStarBricks = 12,
   maxHazardBricks = 4,
   maxBrickHits: number = MAX_BRICK_HITS,
 ): LevelValidationIssue[] {

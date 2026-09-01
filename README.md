@@ -1,6 +1,6 @@
 # Bounce & Fit
 
-A calm, puzzle-driven brick breaker. Players clear levels using a limited
+A fun, puzzle-driven brick breaker. Players clear levels using a limited
 number of lives, with star bricks that drop strategic power-ups when caught
 — no timers, no reflex pressure, no predatory monetization.
 

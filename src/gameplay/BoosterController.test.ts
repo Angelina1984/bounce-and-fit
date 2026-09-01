@@ -6,6 +6,7 @@ import {
   BURNING_BALL_TINT,
   MAX_BALLS,
   NARROW_PADDLE_MULTIPLIER,
+  FAST_BALL_MULTIPLIER,
   PADDLE_HEIGHT,
   PADDLE_WIDTH,
   SLOW_BALL_MULTIPLIER,
@@ -191,6 +192,82 @@ describe("BoosterController", () => {
 
       fireAllPending();
       expect(controller.paddleFrozen).toBe(false);
+    });
+  });
+
+  describe("fast-ball", () => {
+    it("raises the speed multiplier and reverts when its timer fires", () => {
+      const { controller, fireAllPending } = setup();
+
+      controller.apply("fast-ball");
+      expect(controller.speedMultiplier).toBe(FAST_BALL_MULTIPLIER);
+
+      fireAllPending();
+      expect(controller.speedMultiplier).toBe(1);
+    });
+
+    it("immediately rescales a ball already in flight, like Slow Ball does", () => {
+      const { controller, primaryBall } = setup();
+      primaryBall.body.setVelocity(0, -BALL_SPEED);
+
+      controller.apply("fast-ball");
+
+      expect(primaryBall.body.velocity.y).toBeCloseTo(-BALL_SPEED * FAST_BALL_MULTIPLIER);
+    });
+
+    // The two are opposites sharing one slot. If they stacked, the ball
+    // would end up at 0.6 x 1.5 = 0.9 of base — a speed neither booster
+    // advertises, arrived at by catching both.
+    it("replaces a running Slow Ball outright rather than compounding with it", () => {
+      const { controller, primaryBall } = setup();
+      primaryBall.body.setVelocity(0, -BALL_SPEED);
+
+      controller.apply("slow-ball");
+      controller.apply("fast-ball");
+
+      expect(controller.speedMultiplier).toBe(FAST_BALL_MULTIPLIER);
+      expect(primaryBall.body.velocity.y).toBeCloseTo(-BALL_SPEED * FAST_BALL_MULTIPLIER);
+    });
+
+    it("is replaced by a Slow Ball caught after it, symmetrically", () => {
+      const { controller } = setup();
+
+      controller.apply("fast-ball");
+      controller.apply("slow-ball");
+
+      expect(controller.speedMultiplier).toBe(SLOW_BALL_MULTIPLIER);
+    });
+
+    // Sharing a slot means sharing a timer, so the cancelled effect's timer
+    // must not fire later and reset a speed that no longer belongs to it.
+    it("does not let the replaced effect's timer clear the replacement", () => {
+      const { controller, fireAllPending } = setup();
+
+      controller.apply("slow-ball");
+      controller.apply("fast-ball");
+      fireAllPending();
+
+      expect(controller.speedMultiplier).toBe(1);
+    });
+
+    it("names itself in the HUD badges, not the slot it shares with Slow Ball", () => {
+      const { controller } = setup();
+
+      controller.apply("fast-ball");
+      expect(controller.getActiveBoosters().map((b) => b.type)).toEqual(["fast-ball"]);
+
+      controller.apply("slow-ball");
+      expect(controller.getActiveBoosters().map((b) => b.type)).toEqual(["slow-ball"]);
+    });
+
+    it("is cleared by resetAll, like every other timed effect", () => {
+      const { controller } = setup();
+
+      controller.apply("fast-ball");
+      controller.resetAll();
+
+      expect(controller.speedMultiplier).toBe(1);
+      expect(controller.getActiveBoosters()).toEqual([]);
     });
   });
 

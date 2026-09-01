@@ -785,6 +785,47 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       Measured in the running app across all six levels: 170 (40% of ball)
       on levels 1-4, 323 (67%) on level 5, 476 (87%) on level 6.
 
+- [x] **Fast Ball, a denser booster set, and a persisted personal best**
+      (Aug 31, 2026). "Lets introduce another booster can be making the ball
+      go faster. Add more boosters to each level (multi-balls) and fire
+      ball. The game is taking too long and is boring. Let's also add the
+      scoring for personal-best."
+      (1) **Fast Ball** (`×1.5`, 5s). Slow Ball and Fast Ball are the same
+      effect at different multipliers, so they were merged onto one slot:
+      `setBallSpeedEffect()` with a shared `speedTimer` and a `speedEffect`
+      naming which is running. Catching either now _replaces_ the other —
+      left stacking, they would land the ball at `0.6 × 1.5 = 0.9` of base,
+      a speed neither booster advertises, reachable only by catching both.
+      `getActiveBoosters()` had to stop inferring the badge from
+      `speed !== 1`, which can't say which of the two is on.
+      **A quieter bug in the same change:** `spawnExtraBalls()` clamps a new
+      ball's speed to `[base × SLOW_BALL_MULTIPLIER, base]` — so a ball
+      spawned during Fast Ball was instantly clamped back down to base. The
+      upper bound is `base × FAST_BALL_MULTIPLIER` now.
+      (2) **12 star bricks per level**, up from 8, all four additions being
+      pace boosters (second Double Ball, Extra Ball, Burning Ball, Fast
+      Ball). The `levelData` test asserting "exactly one Double Ball per
+      level" encoded the old rule and was rewritten to the new one: every
+      level carries the whole pace set, Triple Ball stays capped at one, and
+      every level has at least four ball spawners.
+      (3) **Personal best**, `localStorage`, one namespaced key. Every
+      failure mode collapses to 0 rather than propagating — reading
+      `localStorage` _throws_ (not returns null) in Safari private mode, and
+      the stored string is player-editable, so corrupt/negative/infinite
+      values are "no best yet". A refused _write_ still reports `isNewBest`:
+      the run really was the best one, and the screen shouldn't contradict
+      that because the browser won't remember it.
+      **Design call made mid-implementation:** the first version announced a
+      new best on the win screen, which broke a core-loop test — correctly.
+      With no stored best every early clear is a record, so it would have
+      said "new best" almost every time, and it displaced the level name
+      that was added because "which level was that?" is a real question. A
+      personal best is a property of a _run_, so it is banked silently on
+      each level clear and announced only where a run ends.
+      **Not addressed, and it is half the complaint:** the brick count. A
+      level is still up to 56 bricks plus tough-brick hits. If it still
+      drags, the grid is the next lever — see the design brief.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

@@ -19,6 +19,8 @@ import {
   NARROW_PADDLE_MULTIPLIER,
   PADDLE_HEIGHT,
   PADDLE_WIDTH,
+  FAST_BALL_DURATION_MS,
+  FAST_BALL_MULTIPLIER,
   SLOW_BALL_DURATION_MS,
   SLOW_BALL_MULTIPLIER,
   STICKY_PADDLE_DURATION_MS,
@@ -81,13 +83,18 @@ export class BoosterController {
   private burning = false;
   private big = false;
   private speed = 1;
+  /** Which ball-speed effect is running, if any. Slow Ball and Fast Ball
+   * share this one slot: they are opposites, so catching either has to
+   * replace the other rather than compound with it, and the HUD badge needs
+   * to name which one is on — `speed !== 1` alone can't say. */
+  private speedEffect?: "slow-ball" | "fast-ball";
   private sticky = false;
   private foresight = false;
 
   private wideTimer?: Phaser.Time.TimerEvent;
   private narrowTimer?: Phaser.Time.TimerEvent;
   private freezeTimer?: Phaser.Time.TimerEvent;
-  private slowBallTimer?: Phaser.Time.TimerEvent;
+  private speedTimer?: Phaser.Time.TimerEvent;
   private bigBallTimer?: Phaser.Time.TimerEvent;
   private burningBallTimer?: Phaser.Time.TimerEvent;
   private stickyPaddleTimer?: Phaser.Time.TimerEvent;
@@ -162,23 +169,11 @@ export class BoosterController {
         break;
 
       case "slow-ball":
-        // Reported live as "Slow Ball didn't really slow": this.speed was
-        // only ever read at the *next* paddle bounce or serve — a ball
-        // already in flight kept its pre-catch velocity untouched. With a
-        // short 3-second window, that next bounce often never happens
-        // before the timer expires, so the booster could visibly do
-        // nothing at all. Rescaling every ball currently in flight here
-        // (and symmetrically on revert below) makes the effect immediate
-        // and guaranteed, not dependent on when the ball next hits the paddle.
-        this.slowBallTimer?.remove();
-        this.speed = SLOW_BALL_MULTIPLIER;
-        this.rescaleBallSpeeds(this.deps.getBallSpeed() * SLOW_BALL_MULTIPLIER);
-        this.slowBallTimer = this.deps.scene.time.delayedCall(SLOW_BALL_DURATION_MS, () => {
-          this.speed = 1;
-          this.rescaleBallSpeeds(this.deps.getBallSpeed());
-          this.slowBallTimer = undefined;
-          this.deps.onChange();
-        });
+        this.setBallSpeedEffect("slow-ball", SLOW_BALL_MULTIPLIER, SLOW_BALL_DURATION_MS);
+        break;
+
+      case "fast-ball":
+        this.setBallSpeedEffect("fast-ball", FAST_BALL_MULTIPLIER, FAST_BALL_DURATION_MS);
         break;
 
       case "big-ball":
@@ -238,6 +233,32 @@ export class BoosterController {
     this.deps.onChange();
   }
 
+  /**
+   * Slow Ball and Fast Ball, which are the same effect at different
+   * multipliers. They share one timer and one slot, so catching either
+   * cancels the other outright — two opposite multipliers stacking would
+   * produce a ball speed neither booster advertises.
+   *
+   * Rescales every ball already in flight rather than only setting the
+   * multiplier for the next bounce. Reported live as "Slow Ball didn't
+   * really slow": `speed` used to be read only at the next paddle contact
+   * or serve, and inside a 3-second window that bounce often never happened
+   * before the timer expired, so the booster could visibly do nothing.
+   */
+  private setBallSpeedEffect(effect: "slow-ball" | "fast-ball", multiplier: number, durationMs: number): void {
+    this.speedTimer?.remove();
+    this.speedEffect = effect;
+    this.speed = multiplier;
+    this.rescaleBallSpeeds(this.deps.getBallSpeed() * multiplier);
+    this.speedTimer = this.deps.scene.time.delayedCall(durationMs, () => {
+      this.speed = 1;
+      this.speedEffect = undefined;
+      this.rescaleBallSpeeds(this.deps.getBallSpeed());
+      this.speedTimer = undefined;
+      this.deps.onChange();
+    });
+  }
+
   /** Clears every active booster and hazard back to native — called when a
    * life is lost, so a miss can't leave one running for free afterward. */
   resetAll(): void {
@@ -248,8 +269,9 @@ export class BoosterController {
     this.narrowTimer = undefined;
     this.freezeTimer?.remove();
     this.freezeTimer = undefined;
-    this.slowBallTimer?.remove();
-    this.slowBallTimer = undefined;
+    this.speedTimer?.remove();
+    this.speedTimer = undefined;
+    this.speedEffect = undefined;
     this.bigBallTimer?.remove();
     this.bigBallTimer = undefined;
     this.burningBallTimer?.remove();
@@ -289,7 +311,7 @@ export class BoosterController {
     if (this.widthState === "wide") add("wide-paddle", this.wideTimer);
     if (this.widthState === "narrow") add("narrow-paddle", this.narrowTimer);
     if (this.frozen) add("freeze-paddle", this.freezeTimer);
-    if (this.speed !== 1) add("slow-ball", this.slowBallTimer);
+    if (this.speedEffect) add(this.speedEffect, this.speedTimer);
     if (this.big) add("big-ball", this.bigBallTimer);
     if (this.burning) add("burning-ball", this.burningBallTimer);
     if (this.sticky) add("sticky-paddle", this.stickyPaddleTimer);
@@ -312,7 +334,7 @@ export class BoosterController {
     const baseSpeed = clamp(
       Math.hypot(sourceBody.velocity.x, sourceBody.velocity.y),
       levelBallSpeed * SLOW_BALL_MULTIPLIER,
-      levelBallSpeed,
+      levelBallSpeed * FAST_BALL_MULTIPLIER,
     );
     const baseAngle =
       sourceBody.velocity.x === 0 && sourceBody.velocity.y === 0

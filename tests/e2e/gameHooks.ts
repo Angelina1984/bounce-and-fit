@@ -21,6 +21,8 @@ export interface SceneSnapshot {
   scoreText: string;
   levelText: string;
   messageText: string;
+  /** The win/lose panel's rows, as one string with newlines. */
+  breakdownText: string;
   actionText: string;
   actionVisible: boolean;
   paddleX: number;
@@ -139,6 +141,7 @@ export async function getPrototypeScene(page: Page): Promise<SceneSnapshot> {
       scoreText: s.hud.scoreText.text,
       levelText: s.hud.levelText.text,
       messageText: s.hud.messageText.text,
+      breakdownText: s.hud.breakdownText.text,
       actionText: s.hud.actionText.text,
       actionVisible: s.hud.actionText.visible,
       paddleX: s.paddle.x,

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { GAME_STATE } from "../../src/constants";
+import { FAST_BALL_MULTIPLIER, GAME_STATE } from "../../src/constants";
 import {
   advanceToLevel,
   catchStarPowerUp,
@@ -343,5 +343,83 @@ test.describe("Level progression", () => {
     );
     expect(velocities).toHaveLength(2);
     for (const speed of velocities) expect(speed).toBeGreaterThan(50);
+  });
+});
+
+test.describe("Fast Ball", () => {
+  test("speeds a ball already in flight, and reverts on its own", async ({ page }) => {
+    await startGame(page);
+    await tapToServe(page);
+    await page.waitForTimeout(120);
+
+    const speed = () =>
+      page.evaluate(() => {
+        const b = window.__game.scene.getScene("prototype").primaryBall.body;
+        return Math.hypot(b.velocity.x, b.velocity.y);
+      });
+
+    const before = await speed();
+    expect(before).toBeGreaterThan(0);
+
+    // Two things other than the timer can change the multiplier inside the
+    // 5s window, and both had to be removed for this to mean anything.
+    // A ball left to itself gets missed, and a miss resets every booster —
+    // so the paddle is widened past the arena to make the rally unmissable.
+    // But a paddle that wide then catches every drop that falls, and with
+    // two Fast Balls and a Slow Ball per level, those catches kept re-arming
+    // the very timer under test (this failed 3/3 that way before the arena
+    // was emptied). Destroying the bricks directly, rather than through
+    // handleBrickHit, drops nothing and does not end the level.
+    await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      s.bricks
+        .getChildren()
+        .slice()
+        .forEach((b: { destroy: () => void }) => b.destroy());
+      s.powerUps.clear(true, true);
+      s.paddle.setDisplaySize(2000, s.paddle.displayHeight);
+    });
+
+    await page.evaluate(() => window.__game.scene.getScene("prototype").boosters.apply("fast-ball"));
+    expect(await speed()).toBeCloseTo(before * FAST_BALL_MULTIPLIER, 0);
+
+    const livesDuring = (await getPrototypeScene(page)).lives;
+    // Generous, and not arbitrarily: the 5s here is *game* time, and
+    // Phaser's clock advances on requestAnimationFrame, which browsers
+    // throttle hard when several Playwright workers compete for the machine.
+    // A timeout sized to the duration plus a little passes solo and fails
+    // every time in parallel (see gameHooks.ts and coding-hygiene.md).
+    await page.waitForFunction(
+      () => window.__game.scene.getScene("prototype").boosters.speedMultiplier === 1,
+      undefined,
+      { timeout: 30_000 },
+    );
+
+    const after = await getPrototypeScene(page);
+    // No life was lost, so the revert came from the booster's own timer
+    // rather than from the reset a miss performs.
+    expect(after.lives).toBe(livesDuring);
+    expect(await speed()).toBeCloseTo(before, 0);
+  });
+
+  // The two are opposites sharing one slot in BoosterController. If they
+  // stacked, the ball would end up at a speed neither booster advertises.
+  test("replaces a running Slow Ball rather than compounding with it", async ({ page }) => {
+    await startGame(page);
+    await tapToServe(page);
+    await page.waitForTimeout(120);
+
+    const active = await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      s.boosters.apply("slow-ball");
+      s.boosters.apply("fast-ball");
+      return {
+        types: s.boosters.getActiveBoosters().map((b: { type: string }) => b.type),
+        multiplier: s.boosters.speedMultiplier,
+      };
+    });
+
+    expect(active.types).toEqual(["fast-ball"]);
+    expect(active.multiplier).toBeCloseTo(FAST_BALL_MULTIPLIER);
   });
 });

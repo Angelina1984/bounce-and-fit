@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { BoosterController } from "../gameplay/BoosterController";
 import { ScoreKeeper } from "../gameplay/ScoreKeeper";
+import { recordScore } from "../gameplay/personalBest";
 import { buildBrickGrid } from "../gameplay/brickGrid";
 import {
   ballSpeedForLevel,
@@ -564,8 +565,6 @@ export class PrototypeScene extends Phaser.Scene {
       body.setVelocity(0, 0);
     });
 
-    this.hud.showMessage(result === GAME_STATE.WON ? `Level ${this.levelIndex + 1} clear!` : "Out of lives");
-
     if (result === GAME_STATE.WON) {
       // Bonuses land before the breakdown is rendered, so the number shown
       // is the score the next level actually starts from.
@@ -584,6 +583,23 @@ export class PrototypeScene extends Phaser.Scene {
       rows.push([`Lives left x${this.livesRemaining}`, plus(bonus.livesBonus)]);
       rows.push(["Total", bonus.total.toLocaleString()]);
       this.hud.showScoreBreakdown(rows);
+
+      // Banked on every level clear, not only when a run ends: the score is
+      // run-wide and carries forward, so the highest total a run ever
+      // reaches is the one worth keeping — a player who clears five levels
+      // and then loses the sixth should keep what those five were worth.
+      //
+      // Silent here, deliberately. Announcing it on the win screen would
+      // fire on nearly every early clear (with no stored best, everything
+      // is a record), which makes the celebration mean nothing, and it
+      // would cost the level name — added because "which level was that?"
+      // is a real question on a screen showing a running total. A personal
+      // best is a property of a *run*, so it is announced where a run ends.
+      // It is also not a breakdown row: those rows sum to Total, and a
+      // number after the total that isn't part of the sum is exactly the
+      // "arithmetic doesn't add up" bug this screen already had once.
+      recordScore(globalThis.localStorage, bonus.total);
+      this.hud.showMessage(`Level ${this.levelIndex + 1} clear!`);
 
       const isLastLevel = this.levelIndex >= LEVELS.length - 1;
       this.hud.setAction(isLastLevel ? "Play Again" : "Next Level", () => {
@@ -613,7 +629,15 @@ export class PrototypeScene extends Phaser.Scene {
       // Lives are a run-wide resource (they carry across levels), so running
       // out is a full game over — retry restarts the whole run from level 1,
       // not just a replay of the level you happened to be on.
-      this.hud.showScoreBreakdown([["Final score", this.scoring.score.toLocaleString()]]);
+      // The lose screen's breakdown is a plain list, not a column that has
+      // to sum, so the best belongs here where it can be compared directly
+      // against the score that just ended.
+      const { best, isNewBest } = recordScore(globalThis.localStorage, this.scoring.score);
+      this.hud.showMessage(isNewBest ? "Out of lives — new best!" : "Out of lives");
+      this.hud.showScoreBreakdown([
+        ["Final score", this.scoring.score.toLocaleString()],
+        ["Personal best", best.toLocaleString()],
+      ]);
       this.hud.setAction("Tap to retry", () => {
         this.levelIndex = 0;
         // A fresh run: no carryScore, so the next create() starts at 0.

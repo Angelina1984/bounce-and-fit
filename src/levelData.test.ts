@@ -106,12 +106,35 @@ describe("validateLevels", () => {
 });
 
 describe("LEVELS content", () => {
-  it("gives every level exactly one Double Ball and one Triple Ball star brick", () => {
+  // The pacing set. A level was reported as taking too long and playing
+  // boring, and these five are the boosters that answer that directly:
+  // three that put more balls on the field, one that pierces a whole
+  // column, and one that speeds the ball up. Every level carries all five,
+  // so no level can quietly regress to a slow one.
+  const PACE_BOOSTERS = ["double-ball", "triple-ball", "extra-ball", "burning-ball", "fast-ball"] as const;
+
+  it("carries the whole pace set on every level", () => {
     for (const level of LEVELS) {
-      const doubleBalls = level.starBricks.filter((s) => s.powerUp === "double-ball");
+      for (const booster of PACE_BOOSTERS) {
+        const present = level.starBricks.some((s) => s.powerUp === booster);
+        expect(present, `${level.name} should carry ${booster}`).toBe(true);
+      }
+    }
+  });
+
+  it("keeps Triple Ball to one per level — it is the strongest of the three", () => {
+    for (const level of LEVELS) {
       const tripleBalls = level.starBricks.filter((s) => s.powerUp === "triple-ball");
-      expect(doubleBalls, `${level.name} should have exactly one Double Ball`).toHaveLength(1);
       expect(tripleBalls, `${level.name} should have exactly one Triple Ball`).toHaveLength(1);
+    }
+  });
+
+  it("gives every level at least four ball-spawning star bricks", () => {
+    for (const level of LEVELS) {
+      const spawners = level.starBricks.filter(
+        (s) => s.powerUp === "extra-ball" || s.powerUp === "double-ball" || s.powerUp === "triple-ball",
+      );
+      expect(spawners.length, `${level.name} ball spawners`).toBeGreaterThanOrEqual(4);
     }
   });
 

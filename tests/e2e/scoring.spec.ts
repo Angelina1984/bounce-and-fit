@@ -154,4 +154,113 @@ test.describe("Scoring", () => {
     // A catch is not a bounce — the multiplier must survive it.
     expect(await page.evaluate(() => window.__game.scene.getScene("prototype").scoring.comboCount)).toBe(comboBefore);
   });
+
+  // The only persisted state in the game, so it is also the only thing a
+  // test can leave behind for the next one — every case here sets the
+  // stored value explicitly rather than relying on what a prior run wrote.
+  test.describe("Personal best", () => {
+    const setStoredBest = (page: Page, value: string | null) =>
+      page.evaluate((v) => {
+        if (v === null) localStorage.removeItem("bounce-and-fit:personal-best");
+        else localStorage.setItem("bounce-and-fit:personal-best", v);
+      }, value);
+
+    const storedBest = (page: Page) => page.evaluate(() => localStorage.getItem("bounce-and-fit:personal-best"));
+
+    async function loseTheRun(page: Page): Promise<void> {
+      await page.evaluate(() => {
+        const s = window.__game.scene.getScene("prototype");
+        s.livesRemaining = 1;
+        s.state = "playing";
+        s.paddle.x = 50;
+        s.primaryBall.x = 400;
+        s.primaryBall.y = s.paddle.y - 30;
+        s.primaryBall.body.setVelocity(0, 500);
+      });
+      await page.waitForFunction(() => window.__game.scene.getScene("prototype").state === "lost", undefined, {
+        timeout: 10000,
+      });
+    }
+
+    test("a losing run records its score and says so when it beat the old best", async ({ page }) => {
+      await page.goto("/");
+      await waitForGameReady(page);
+      await setStoredBest(page, "5");
+      await clickPlay(page);
+      await destroyPlainBricks(page, 3);
+      const score = (await getPrototypeScene(page)).score;
+      expect(score).toBeGreaterThan(5);
+
+      await loseTheRun(page);
+
+      expect(await storedBest(page)).toBe(String(score));
+      const ended = await getPrototypeScene(page);
+      expect(ended.messageText).toContain("new best");
+      expect(ended.breakdownText).toContain("Personal best");
+      expect(ended.breakdownText).toContain(score.toLocaleString());
+    });
+
+    test("a run that falls short leaves the stored best alone and does not celebrate", async ({ page }) => {
+      await page.goto("/");
+      await waitForGameReady(page);
+      await setStoredBest(page, "999999");
+      await clickPlay(page);
+      await destroyPlainBricks(page, 2);
+
+      await loseTheRun(page);
+
+      expect(await storedBest(page)).toBe("999999");
+      const ended = await getPrototypeScene(page);
+      expect(ended.messageText).toBe("Out of lives");
+      expect(ended.breakdownText).toContain("999,999");
+    });
+
+    // Clearing a level banks the total then and there, because the score is
+    // run-wide: a player who clears five levels and loses the sixth should
+    // still keep what those five were worth.
+    test("clearing a level banks the total, without waiting for the run to end", async ({ page }) => {
+      await page.goto("/");
+      await waitForGameReady(page);
+      await setStoredBest(page, null);
+      await clickPlay(page);
+      await winCurrentLevel(page);
+      await page.waitForTimeout(200);
+
+      const won = await getPrototypeScene(page);
+      expect(await storedBest(page)).toBe(String(won.score));
+      // Banked silently. The win screen keeps naming the level: with no
+      // stored best, every early clear is a record, so announcing it here
+      // would say "new best" almost every time and mean nothing.
+      expect(won.messageText).toBe("Level 1 clear!");
+      // Nor a breakdown row — those rows sum to Total, and a number after
+      // the total that is not part of the sum is the bug this screen had.
+      expect(won.breakdownText).not.toContain("Personal best");
+    });
+
+    test("the title screen shows the best once there is one, and not before", async ({ page }) => {
+      await page.goto("/");
+      await waitForGameReady(page);
+      await setStoredBest(page, null);
+      await page.reload();
+      await waitForGameReady(page);
+      // Walks into Containers, not just the scene's own display list:
+      // PillBadge nests its label inside a Container, and Container.add
+      // removes the child from the display list, so a flat scan finds the
+      // title and tagline but never the badge.
+      const titleTexts = () =>
+        page.evaluate(() => {
+          const walk = (list: any[]): string[] =>
+            list.flatMap((c: any) =>
+              typeof c.text === "string" ? [c.text] : Array.isArray(c.list) ? walk(c.list) : [],
+            );
+          return walk(window.__game.scene.getScene("title").children.list);
+        });
+      expect((await titleTexts()).join(" ")).not.toContain("Best");
+
+      await setStoredBest(page, "4321");
+      await page.reload();
+      await waitForGameReady(page);
+      expect((await titleTexts()).join(" ")).toContain("4,321");
+    });
+  });
 });

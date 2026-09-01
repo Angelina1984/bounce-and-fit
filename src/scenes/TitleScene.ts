@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { SCENE_KEY_PROTOTYPE, SCENE_KEY_TITLE, TEXT_COLOR_MUTED } from "../constants";
-import { GlossyButton, outlinedTextStyle } from "../ui/theme";
+import { readPersonalBest } from "../gameplay/personalBest";
+import { GlossyButton, PillBadge, outlinedTextStyle } from "../ui/theme";
 import { addBackdrop, ensureCandyTextures } from "../ui/textures";
 
 export class TitleScene extends Phaser.Scene {
@@ -27,5 +28,16 @@ export class TitleScene extends Phaser.Scene {
 
     const playButton = new GlossyButton(this, width / 2, height / 2 + 60, "Play", { fontSize: "28px" });
     playButton.onClick(() => this.scene.start(SCENE_KEY_PROTOTYPE));
+
+    // Only shown once there is one. A "Best 0" badge on a first launch
+    // advertises a scoreboard the player hasn't played for yet, and the
+    // number to beat is the whole reason this is on the title screen.
+    const best = readPersonalBest(globalThis.localStorage);
+    if (best > 0) {
+      new PillBadge(this, width / 2, height / 2 + 130, `Best  ${best.toLocaleString()}`, {
+        fontSize: "16px",
+        originX: 0.5,
+      });
+    }
   }
 }
