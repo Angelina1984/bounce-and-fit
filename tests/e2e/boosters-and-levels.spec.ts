@@ -138,6 +138,42 @@ test.describe("Boosters", () => {
   });
 });
 
+test("an active booster shows a countdown badge that ticks down and then disappears", async ({ page }) => {
+  await startGame(page);
+
+  const badges = () =>
+    page.evaluate(() =>
+      window.__game.scene
+        .getScene("prototype")
+        .boosters.getActiveBoosters()
+        .map((b: any) => ({ type: b.type, remainingMs: b.remainingMs })),
+    );
+
+  expect(await badges()).toEqual([]);
+
+  await page.evaluate(() => window.__game.scene.getScene("prototype").boosters.apply("big-ball"));
+  const first = await badges();
+  expect(first).toHaveLength(1);
+  expect(first[0].type).toBe("big-ball");
+
+  // Real time has to actually reduce it — this is the whole feature.
+  await page.waitForFunction(
+    (startMs) => {
+      const list = window.__game.scene.getScene("prototype").boosters.getActiveBoosters();
+      return list.length === 1 && list[0].remainingMs < startMs - 400;
+    },
+    first[0].remainingMs,
+    { timeout: 8000 },
+  );
+
+  // And the HUD label reflects it, not just the controller.
+  const labelText = await page.evaluate(() => {
+    const hud = window.__game.scene.getScene("prototype").hud;
+    return hud.boosterLabels.filter((l: any) => l.visible).map((l: any) => l.text);
+  });
+  expect(labelText.join(" ")).toContain("Big Ball");
+});
+
 test.describe("Level progression", () => {
   test("winning every level wraps back to level 1 with a full life count", async ({ page }) => {
     await startGame(page);

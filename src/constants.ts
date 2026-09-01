@@ -133,6 +133,11 @@ export const TRIPLE_BALL_SPAWN_COUNT = 3;
 // rather than a runaway one.
 export const SCORE_PER_BRICK = 10;
 export const SCORE_MAX_COMBO = 5;
+// Catching a drop is a real intercept across the arena and was worth
+// nothing until now. A flat bonus rewards it without punishing a miss,
+// which §3 explicitly forbids — the drop you don't catch still costs you
+// nothing, you just don't get the bonus.
+export const SCORE_PER_BOOSTER_CAUGHT = 25;
 export const SCORE_LEVEL_CLEAR = 100;
 export const SCORE_PER_LIFE_REMAINING = 50;
 

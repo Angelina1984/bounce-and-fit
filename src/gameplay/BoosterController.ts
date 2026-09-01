@@ -27,8 +27,17 @@ import {
   WIDE_PADDLE_MULTIPLIER,
 } from "../constants";
 import { clamp, degToRad } from "../gameplayMath";
-import { POWER_UP_LABELS } from "../levelData";
+import { POWER_UP_LABELS, POWER_UP_TINTS } from "../levelData";
 import type { PowerUpType } from "../levelData";
+
+/** One active timed effect, as the HUD needs to draw it. */
+export interface ActiveBooster {
+  type: PowerUpType;
+  label: string;
+  tint: number;
+  /** Milliseconds left on its timer; 0 once the timer has fired. */
+  remainingMs: number;
+}
 
 type PaddleWidthState = "normal" | "wide" | "narrow";
 
@@ -259,20 +268,33 @@ export class BoosterController {
     this.deps.onChange();
   }
 
-  /** A HUD-ready line like "Wide Paddle   Slow Ball", or "" if nothing's
-   * active. No remaining-count is shown for anything — every booster and
-   * hazard is a real-time effect now, not a hits-remaining resource. */
-  getStatusText(): string {
-    const active: string[] = [];
-    if (this.widthState === "wide") active.push(POWER_UP_LABELS["wide-paddle"]);
-    if (this.widthState === "narrow") active.push(POWER_UP_LABELS["narrow-paddle"]);
-    if (this.frozen) active.push(POWER_UP_LABELS["freeze-paddle"]);
-    if (this.speed !== 1) active.push(POWER_UP_LABELS["slow-ball"]);
-    if (this.big) active.push(POWER_UP_LABELS["big-ball"]);
-    if (this.burning) active.push(POWER_UP_LABELS["burning-ball"]);
-    if (this.sticky) active.push(POWER_UP_LABELS["sticky-paddle"]);
-    if (this.foresight) active.push(POWER_UP_LABELS["foresight"]);
-    return active.join("   ");
+  /**
+   * Every currently-active timed effect with its remaining time, newest
+   * timers last. Feeds the HUD's countdown badges.
+   *
+   * Reads each effect's *state flag* to decide whether it's active, and its
+   * timer only for the remaining milliseconds — not the other way round.
+   * A timer that has already fired is cleared to undefined by its own
+   * callback, so trusting the flag keeps this correct on the frame an
+   * effect ends, and keeps hazards (which set state the same way) in the
+   * list alongside boosters.
+   */
+  getActiveBoosters(): ActiveBooster[] {
+    const remaining = (timer?: Phaser.Time.TimerEvent): number => (timer ? Math.max(0, timer.getRemaining()) : 0);
+
+    const active: ActiveBooster[] = [];
+    const add = (type: PowerUpType, timer?: Phaser.Time.TimerEvent) =>
+      active.push({ type, label: POWER_UP_LABELS[type], tint: POWER_UP_TINTS[type], remainingMs: remaining(timer) });
+
+    if (this.widthState === "wide") add("wide-paddle", this.wideTimer);
+    if (this.widthState === "narrow") add("narrow-paddle", this.narrowTimer);
+    if (this.frozen) add("freeze-paddle", this.freezeTimer);
+    if (this.speed !== 1) add("slow-ball", this.slowBallTimer);
+    if (this.big) add("big-ball", this.bigBallTimer);
+    if (this.burning) add("burning-ball", this.burningBallTimer);
+    if (this.sticky) add("sticky-paddle", this.stickyPaddleTimer);
+    if (this.foresight) add("foresight", this.foresightTimer);
+    return active;
   }
 
   /** Extra Ball/Double Ball/Triple Ball all funnel through here — the only

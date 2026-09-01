@@ -1,4 +1,10 @@
-import { SCORE_LEVEL_CLEAR, SCORE_MAX_COMBO, SCORE_PER_BRICK, SCORE_PER_LIFE_REMAINING } from "../constants";
+import {
+  SCORE_LEVEL_CLEAR,
+  SCORE_MAX_COMBO,
+  SCORE_PER_BOOSTER_CAUGHT,
+  SCORE_PER_BRICK,
+  SCORE_PER_LIFE_REMAINING,
+} from "../constants";
 
 /**
  * The run's score, and the combo state that drives it.
@@ -16,11 +22,22 @@ import { SCORE_LEVEL_CLEAR, SCORE_MAX_COMBO, SCORE_PER_BRICK, SCORE_PER_LIFE_REM
  */
 export class ScoreKeeper {
   private total: number;
+  /** The score this level began with — everything carried in from earlier
+   * levels. Kept so the win screen can separate "what you earned here" from
+   * "what you already had", which is otherwise impossible to tell apart in
+   * a single running total. */
+  private readonly levelStartScore: number;
   /** Bricks destroyed since the last paddle contact — the current trip. */
   private bricksThisTrip = 0;
 
   constructor(startingScore = 0) {
     this.total = startingScore;
+    this.levelStartScore = startingScore;
+  }
+
+  /** Points earned since this level began, excluding end-of-level bonuses. */
+  get earnedThisLevel(): number {
+    return this.total - this.levelStartScore;
   }
 
   get score(): number {
@@ -51,6 +68,16 @@ export class ScoreKeeper {
     return points;
   }
 
+  /**
+   * Flat bonus for catching a booster drop. Deliberately does NOT touch the
+   * combo: the catch is its own reward, and letting it extend a multiplier
+   * would push players to fish for drops instead of clearing bricks.
+   */
+  registerBoosterCaught(): number {
+    this.total += SCORE_PER_BOOSTER_CAUGHT;
+    return SCORE_PER_BOOSTER_CAUGHT;
+  }
+
   /** Ends the current trip. Every paddle contact resets the combo, which is
    * what makes "how much one shot achieved" the thing being measured. */
   registerPaddleContact(): void {
@@ -65,13 +92,26 @@ export class ScoreKeeper {
   /**
    * Level-clear award: a flat bonus plus one per life still in hand, so
    * finishing without missing is worth materially more than scraping
-   * through. Returns the breakdown for the win screen to show.
+   * through.
+   *
+   * Returns a breakdown whose parts genuinely sum to `total`
+   * (carriedIn + earned + levelClear + livesBonus), so the win screen can
+   * show a player where every point came from. A breakdown listing only the
+   * bonuses looks like arithmetic that doesn't work.
    */
-  registerLevelClear(livesRemaining: number): { levelClear: number; livesBonus: number; total: number } {
+  registerLevelClear(livesRemaining: number): {
+    carriedIn: number;
+    earned: number;
+    levelClear: number;
+    livesBonus: number;
+    total: number;
+  } {
+    const carriedIn = this.levelStartScore;
+    const earned = this.earnedThisLevel;
     const levelClear = SCORE_LEVEL_CLEAR;
     const livesBonus = Math.max(0, livesRemaining) * SCORE_PER_LIFE_REMAINING;
     this.total += levelClear + livesBonus;
     this.bricksThisTrip = 0;
-    return { levelClear, livesBonus, total: this.total };
+    return { carriedIn, earned, levelClear, livesBonus, total: this.total };
   }
 }

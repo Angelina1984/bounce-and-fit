@@ -216,10 +216,30 @@ export function paintPillBackground(
   height: number,
   cornerRadius: number = height / 2,
 ): void {
+  gfx.clear();
+  addPill(gfx, x, y, width, height, cornerRadius);
+}
+
+/**
+ * Draws a pill *without* clearing first, so several can share one Graphics.
+ * `paintPillBackground` is the single-pill convenience on top of this — the
+ * clear-then-draw version silently erases its predecessors when reused in a
+ * loop, which is exactly the bug the booster badge row hit.
+ */
+export function addPill(
+  gfx: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  cornerRadius: number = height / 2,
+): void {
   const tones = tonesFor(COLOR_PANEL_VIOLET);
 
-  gfx.clear();
-  paintOutline(gfx, x, y, width, height, cornerRadius, tones.outline);
+  // Deliberately no dark outer ring here (unlike the buttons, which keep
+  // one). A HUD badge sits on a quiet background and doesn't need to pop
+  // off it the way a tappable control does — the black halo just read as
+  // grime around the gold edge. The gold border alone carries the shape.
 
   gfx.fillStyle(tones.face, 0.96);
   gfx.fillRoundedRect(x, y, width, height, cornerRadius);

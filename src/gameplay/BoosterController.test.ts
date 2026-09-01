@@ -9,6 +9,7 @@ import {
   PADDLE_HEIGHT,
   PADDLE_WIDTH,
   SLOW_BALL_MULTIPLIER,
+  WIDE_PADDLE_DURATION_MS,
   WIDE_PADDLE_MULTIPLIER,
 } from "../constants";
 import { BoosterController, type BoosterControllerDeps } from "./BoosterController";
@@ -83,10 +84,14 @@ function createFakeSceneClock() {
   const pending: { callback: () => void; cancelled: boolean }[] = [];
   return {
     time: {
-      delayedCall: (_delay: number, callback: () => void) => {
+      delayedCall: (delay: number, callback: () => void) => {
         const entry = { callback, cancelled: false };
         pending.push(entry);
-        return { remove: () => (entry.cancelled = true) };
+        // getRemaining() models Phaser.Time.TimerEvent's: no simulated time
+        // passes in these tests, so it stays at the full delay. That's
+        // enough to prove the HUD is handed a real countdown value rather
+        // than a placeholder.
+        return { remove: () => (entry.cancelled = true), getRemaining: () => delay };
       },
     },
     fireAllPending: () => {
@@ -444,30 +449,44 @@ describe("BoosterController", () => {
     });
   });
 
-  describe("getStatusText", () => {
-    it("is empty with nothing active, and lists active effects with no remaining count", () => {
+  describe("getActiveBoosters", () => {
+    it("is empty with nothing active, and lists an effect while it runs", () => {
       const { controller, fireAllPending } = setup();
-      expect(controller.getStatusText()).toBe("");
+      expect(controller.getActiveBoosters()).toEqual([]);
 
-      // Every booster/hazard is real-time now — no "hits remaining" to show,
-      // just the label, for as long as it's actually active.
       controller.apply("wide-paddle");
-      expect(controller.getStatusText()).toContain("Wide Paddle");
-      expect(controller.getStatusText()).not.toMatch(/\(\d+\)/);
+      const active = controller.getActiveBoosters();
+      expect(active).toHaveLength(1);
+      expect(active[0].type).toBe("wide-paddle");
+      expect(active[0].label).toBe("Wide Paddle");
 
       fireAllPending();
-      expect(controller.getStatusText()).toBe("");
+      expect(controller.getActiveBoosters()).toEqual([]);
     });
 
-    it("lists multiple active effects together", () => {
+    it("lists multiple active effects together, each with its own tint", () => {
       const { controller } = setup();
 
       controller.apply("wide-paddle");
       controller.apply("slow-ball");
 
-      const text = controller.getStatusText();
-      expect(text).toContain("Wide Paddle");
-      expect(text).toContain("Slow Ball");
+      const types = controller.getActiveBoosters().map((b) => b.type);
+      expect(types).toContain("wide-paddle");
+      expect(types).toContain("slow-ball");
+      // The HUD dot is colored per booster, so each entry has to carry one.
+      expect(new Set(controller.getActiveBoosters().map((b) => b.tint)).size).toBe(2);
+    });
+
+    it("reports the remaining time the HUD counts down from", () => {
+      const { controller } = setup();
+      controller.apply("wide-paddle");
+      expect(controller.getActiveBoosters()[0].remainingMs).toBe(WIDE_PADDLE_DURATION_MS);
+    });
+
+    it("includes hazards, not just boosters — they're timed effects too", () => {
+      const { controller } = setup();
+      controller.apply("freeze-paddle");
+      expect(controller.getActiveBoosters().map((b) => b.type)).toContain("freeze-paddle");
     });
   });
 });

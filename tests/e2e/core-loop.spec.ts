@@ -58,14 +58,17 @@ test.describe("Core loop", () => {
     expect(state.lives).toBe(5);
   });
 
-  test("winning a level shows the congrats message and a Next Level button", async ({ page }) => {
+  test("winning a level names the level that was cleared, and offers Next Level", async ({ page }) => {
     await startGame(page);
     await winCurrentLevel(page);
     await page.waitForTimeout(150);
 
     const state = await getPrototypeScene(page);
     expect(state.state).toBe(GAME_STATE.WON);
-    expect(state.messageText).toContain("Congrats");
+    // Names the level rather than a generic "Level clear" — on a screen
+    // that also shows a running total, "which level was that?" is a real
+    // question a player asks.
+    expect(state.messageText).toBe("Level 1 clear!");
     expect(state.actionText).toBe("Next Level");
     expect(state.actionVisible).toBe(true);
   });

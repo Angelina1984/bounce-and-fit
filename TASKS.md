@@ -656,6 +656,57 @@ challengeStartLevelIndex, step)` in `gameplayMath.ts` (flat through
       surviving icons, not just how many are visible — "5 became 4" would
       pass even if the wrong icon disappeared.
 
+- [x] **Booster countdown badges, catch bonus, and HUD polish** (Aug 31,
+      2026). Three requests plus one question, from live play.
+      (1) The HUD pills had a black halo outside their gold border — removed.
+      A badge sits on a quiet background and doesn't need the outline a
+      tappable button does; it just read as grime. `paintPillBackground` no
+      longer draws the outer ring (buttons keep theirs).
+      (2) Title tagline no longer says "calm": now "Aim your bounce. Break
+      every brick." **Note:** §7/§8 of the design brief still use "calm" as
+      the product positioning — only the on-screen tagline changed. Worth
+      deciding whether the positioning language should follow.
+      (3) Answering "does catching a booster score?" — it did not.
+      `handlePowerUpCatch` applied the effect and never touched the scorer,
+      so a real intercept across the arena was worth nothing. Now +25
+      (`SCORE_PER_BOOSTER_CAUGHT`), deliberately _not_ extending the combo:
+      a catch isn't a bounce, and letting it hold a multiplier alive would
+      reward fishing for drops over clearing bricks.
+      (4) Borrowed the reference games' countdown badges. `getStatusText()`
+      (a bare label list) replaced by `getActiveBoosters()`, returning each
+      live effect's type, label, tint and `remainingMs` from its own
+      `TimerEvent.getRemaining()`. The HUD draws a colored dot + name +
+      seconds per effect and ticks them from `update()`. It early-outs on a
+      signature of types+rounded-seconds, so the labels only re-rasterize
+      when a displayed second actually changes rather than 60×/second.
+      Activeness is read from each effect's _state flag_, not from whether a
+      timer object exists — a fired timer clears itself, so trusting the
+      flag stays correct on the frame an effect ends.
+      **Bug caught in review, not by a test:** `paintPillBackground` starts
+      with `gfx.clear()`, so drawing four badges into one shared Graphics
+      left only the last one visible. Split out `addPill()` (no clear) with
+      `paintPillBackground` as the single-pill convenience over it.
+
+- [x] **Win screen: a breakdown that actually adds up, and names the level**
+      (Aug 31, 2026). Asked "what is the level clear 100 number for?" — and
+      the real problem was bigger than the label. The panel listed only the
+      two bonuses (+100, +250) beside a total of 2,455, leaving ~2,100
+      points unexplained; it read as broken arithmetic, which is why the
+      100 looked like it might be a level number. Root cause: score is
+      run-wide and carries between levels, so a single running total can't
+      distinguish "carried in" from "earned here". `ScoreKeeper` now retains
+      `levelStartScore` and exposes `earnedThisLevel`, and
+      `registerLevelClear()` returns a full breakdown
+      (`carriedIn + earned + levelClear + livesBonus === total`) with a unit
+      test asserting exactly that identity. The panel shows every row, with
+      "Carried over" appearing only when non-zero, so the column visibly
+      sums. Bonus rows are signed ("+100") and values right-aligned into a
+      column. Also, the message names the level — "Level 2 clear!" rather
+      than a generic "Congrats! Level clear!", since on a screen showing a
+      running total "which level was that?" is a real question.
+      `showScoreBreakdown()` now takes preformatted strings: the scene
+      decides signs and emphasis, the HUD only lays out.
+
 ## Backlog
 
 - [ ] **Integration-level coverage is currently folded into the E2E suite**

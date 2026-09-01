@@ -1,5 +1,10 @@
 import { test, expect, type Page } from "@playwright/test";
-import { SCORE_LEVEL_CLEAR, SCORE_PER_BRICK, SCORE_PER_LIFE_REMAINING } from "../../src/constants";
+import {
+  SCORE_LEVEL_CLEAR,
+  SCORE_PER_BOOSTER_CAUGHT,
+  SCORE_PER_BRICK,
+  SCORE_PER_LIFE_REMAINING,
+} from "../../src/constants";
 import { clickActionButton, clickPlay, getPrototypeScene, waitForGameReady, winCurrentLevel } from "./gameHooks";
 
 async function startGame(page: Page): Promise<void> {
@@ -128,5 +133,25 @@ test.describe("Scoring", () => {
     expect(afterRetry.levelIndex).toBe(0);
     expect(afterRetry.score).toBe(0);
     expect(afterRetry.scoreText).toBe("0");
+  });
+
+  test("catching a booster drop awards a bonus without disturbing the combo", async ({ page }) => {
+    await startGame(page);
+    await destroyPlainBricks(page, 2);
+    const before = await getPrototypeScene(page);
+    const comboBefore = await page.evaluate(() => window.__game.scene.getScene("prototype").scoring.comboCount);
+
+    // Catch through the real overlap handler, not by calling the scorer.
+    await page.evaluate(() => {
+      const s = window.__game.scene.getScene("prototype");
+      s.spawnPowerUp(s.paddle.x, s.paddle.y - 40, "wide-paddle");
+      const drop = s.powerUps.getChildren()[0];
+      s.handlePowerUpCatch(s.paddle, drop);
+    });
+
+    const after = await getPrototypeScene(page);
+    expect(after.score).toBe(before.score + SCORE_PER_BOOSTER_CAUGHT);
+    // A catch is not a bounce — the multiplier must survive it.
+    expect(await page.evaluate(() => window.__game.scene.getScene("prototype").scoring.comboCount)).toBe(comboBefore);
   });
 });

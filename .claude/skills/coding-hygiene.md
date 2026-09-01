@@ -231,6 +231,18 @@ and `update()`. Split it before it becomes unreadable, not after:
   E2E suite, which had ten hardcoded `(240, 460)` clicks — a test that
   encodes layout breaks on every layout change and teaches nothing when it
   does, so those became helpers that read the live canvas.
+- **A paint helper that starts with `gfx.clear()` cannot be called in a
+  loop.** `paintPillBackground` did, and drawing a row of booster badges
+  into one shared Graphics left only the last one on screen — each call
+  erased its predecessors. Split into `addPill()` (draws) and
+  `paintPillBackground()` (clears, then draws one). When a helper both
+  resets and draws, the reset is the part that stops composing; keep them
+  separable from the start.
+- **A per-frame HUD update needs a change guard, not just cheap drawing.**
+  The booster countdowns tick from `update()`, but `Text.setText()`
+  re-rasterizes the label's texture — doing that 60×/second to render the
+  same string is pure waste. Compare a signature of what's actually
+  *displayed* (here: types plus whole seconds) and bail when it matches.
 - **A Graphics background sized from its label's own text metrics beats a
   hand-measured rectangle.** `label.width`/`label.height` after `setText()`
   are the real rendered bounds, so a badge that redraws from them stays

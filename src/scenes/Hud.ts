@@ -1,5 +1,6 @@
 import Phaser from "phaser";
 import { BALL_TINT, MAX_LIVES, TEXT_COLOR_GOLD, TEXT_COLOR_WHITE, TEXTURE_KEY_BALL } from "../constants";
+import type { ActiveBooster } from "../gameplay/BoosterController";
 
 // Top status bar geometry — the band above the arena (see ARENA_TOP).
 const HUD_EDGE = 16;
@@ -9,7 +10,14 @@ const HUD_BOOSTER_Y = 78;
 // Lives are drawn as a row of ball icons rather than a number — see setLives().
 const LIFE_ICON_SIZE = 15;
 const LIFE_ICON_GAP = 6;
+// Booster countdown badges. Capped because they lay out in one centered
+// row — more than four would overflow the 480-wide design width.
+const MAX_BOOSTER_BADGES = 4;
+const BADGE_PAD_X = 9;
+const BADGE_GAP = 6;
+const BADGE_DOT = 9;
 import {
+  addPill,
   BUTTON_DEPTH,
   outlinedTextStyle,
   paintGlossyButtonBackground,
@@ -41,7 +49,6 @@ export class Hud {
   readonly scoreText: Phaser.GameObjects.Text;
   readonly levelText: Phaser.GameObjects.Text;
   readonly breakdownText: Phaser.GameObjects.Text;
-  readonly boosterText: Phaser.GameObjects.Text;
   readonly messageText: Phaser.GameObjects.Text;
   readonly actionText: Phaser.GameObjects.Text;
 
@@ -51,7 +58,14 @@ export class Hud {
   private readonly scorePill: Phaser.GameObjects.Graphics;
   private readonly levelPill: Phaser.GameObjects.Graphics;
   private readonly breakdownPill: Phaser.GameObjects.Graphics;
-  private readonly boosterPill: Phaser.GameObjects.Graphics;
+  /** One Graphics for every badge's pill + dot, redrawn as a set — cheaper
+   * than a Graphics per badge, and they always change together. */
+  private readonly boosterBadges: Phaser.GameObjects.Graphics;
+  /** Public so E2E can read what the badges actually say. */
+  readonly boosterLabels: Phaser.GameObjects.Text[] = [];
+  /** What the badges currently show, so a per-frame update can bail out
+   * when nothing visible has changed (see setBoosters). */
+  private badgeSignature = "";
   private readonly actionButtonBg: Phaser.GameObjects.Graphics;
 
   constructor(scene: Phaser.Scene) {
@@ -87,10 +101,7 @@ export class Hud {
       .text(width - HUD_EDGE - HUD_PAD_X, HUD_ROW_Y, "", outlinedTextStyle("15px", 2))
       .setOrigin(1, 0.5);
 
-    this.boosterPill = scene.add.graphics();
-    this.boosterText = scene.add
-      .text(width / 2, HUD_BOOSTER_Y, "", outlinedTextStyle("13px", 2, TEXT_COLOR_GOLD))
-      .setOrigin(0.5, 0.5);
+    this.boosterBadges = scene.add.graphics();
 
     // Drawn before actionText so it renders behind it; hidden until setAction().
     this.actionButtonBg = scene.add.graphics().setVisible(false);
@@ -208,11 +219,14 @@ export class Hud {
     this.redrawPill(this.scorePill, this.scoreText, 0.5);
   }
 
-  /** Win/lose breakdown: rows of label + value, right-aligned into columns
-   * by padding, since Phaser Text has no tab stops. */
-  showScoreBreakdown(rows: Array<[string, number]>): void {
+  /** Win/lose breakdown: rows of label + preformatted value, aligned into
+   * columns by padding since Phaser Text has no tab stops. Values arrive as
+   * strings so the caller controls signs ("+100") and emphasis — this only
+   * lays them out. */
+  showScoreBreakdown(rows: Array<[string, string]>): void {
     const labelWidth = Math.max(...rows.map(([label]) => label.length));
-    const body = rows.map(([label, value]) => `${label.padEnd(labelWidth)}   ${value.toLocaleString()}`).join("\n");
+    const valueWidth = Math.max(...rows.map(([, value]) => value.length));
+    const body = rows.map(([label, value]) => `${label.padEnd(labelWidth)}   ${value.padStart(valueWidth)}`).join("\n");
     this.breakdownText.setText(body).setVisible(true);
 
     const padX = 20;
@@ -227,9 +241,51 @@ export class Hud {
     this.redrawPill(this.levelPill, this.levelText, 1);
   }
 
-  setBoosterStatus(text: string): void {
-    this.boosterText.setText(text);
-    this.redrawPill(this.boosterPill, this.boosterText, 0.5);
+  /**
+   * Draws one countdown badge per active effect: a dot in the booster's own
+   * color, its name, and whole seconds remaining.
+   *
+   * Called every frame, so it early-outs unless the visible content actually
+   * changed — the signature includes the rounded seconds, which is the only
+   * part that ticks. Without that guard this would re-rasterize every label's
+   * texture 60 times a second to show the same string.
+   */
+  setBoosters(active: ActiveBooster[]): void {
+    const shown = active.slice(0, MAX_BOOSTER_BADGES);
+    const signature = shown.map((b) => `${b.type}:${Math.ceil(b.remainingMs / 1000)}`).join("|");
+    if (signature === this.badgeSignature) return;
+    this.badgeSignature = signature;
+
+    while (this.boosterLabels.length < shown.length) {
+      this.boosterLabels.push(
+        this.scene.add.text(0, HUD_BOOSTER_Y, "", outlinedTextStyle("12px", 2, TEXT_COLOR_GOLD)).setOrigin(0, 0.5),
+      );
+    }
+    this.boosterLabels.forEach((label, i) => label.setVisible(i < shown.length));
+
+    this.boosterBadges.clear();
+    if (shown.length === 0) return;
+
+    // Measure first, then lay the row out centered — a badge's width comes
+    // from its own rendered text, so the total isn't known until every
+    // label has its final string.
+    const widths = shown.map((b, i) => {
+      const label = this.boosterLabels[i];
+      label.setText(`${b.label} ${Math.ceil(b.remainingMs / 1000)}s`);
+      return BADGE_DOT + 6 + label.width + BADGE_PAD_X * 2;
+    });
+    const total = widths.reduce((a, b) => a + b, 0) + BADGE_GAP * (shown.length - 1);
+    let x = (this.scene.scale.width - total) / 2;
+
+    shown.forEach((booster, i) => {
+      const w = widths[i];
+      const h = this.boosterLabels[i].height + 8;
+      addPill(this.boosterBadges, x, HUD_BOOSTER_Y - h / 2, w, h);
+      this.boosterBadges.fillStyle(booster.tint, 1);
+      this.boosterBadges.fillCircle(x + BADGE_PAD_X + BADGE_DOT / 2, HUD_BOOSTER_Y, BADGE_DOT / 2);
+      this.boosterLabels[i].setPosition(x + BADGE_PAD_X + BADGE_DOT + 6, HUD_BOOSTER_Y);
+      x += w + BADGE_GAP;
+    });
   }
 
   showMessage(text: string): void {

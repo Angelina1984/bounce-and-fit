@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { ScoreKeeper } from "./ScoreKeeper";
-import { SCORE_LEVEL_CLEAR, SCORE_MAX_COMBO, SCORE_PER_BRICK, SCORE_PER_LIFE_REMAINING } from "../constants";
+import {
+  SCORE_LEVEL_CLEAR,
+  SCORE_MAX_COMBO,
+  SCORE_PER_BOOSTER_CAUGHT,
+  SCORE_PER_BRICK,
+  SCORE_PER_LIFE_REMAINING,
+} from "../constants";
 
 describe("ScoreKeeper", () => {
   it("starts at zero, or at a score carried in from a previous level", () => {
@@ -87,6 +93,27 @@ describe("ScoreKeeper", () => {
     expect(s.score).toBe(result.total);
   });
 
+  // The win screen prints these rows as a column that has to sum to the
+  // total — a breakdown that doesn't add up reads as a bug to the player.
+  it("returns a breakdown whose parts sum exactly to the total", () => {
+    const s = new ScoreKeeper(1200); // carried in from earlier levels
+    s.registerBrickDestroyed();
+    s.registerBrickDestroyed();
+    s.registerBoosterCaught();
+
+    const r = s.registerLevelClear(2);
+    expect(r.carriedIn + r.earned + r.levelClear + r.livesBonus).toBe(r.total);
+    expect(r.carriedIn).toBe(1200);
+  });
+
+  it("separates points earned this level from the score carried into it", () => {
+    const s = new ScoreKeeper(500);
+    expect(s.earnedThisLevel).toBe(0);
+    s.registerBrickDestroyed();
+    expect(s.earnedThisLevel).toBe(SCORE_PER_BRICK);
+    expect(s.score).toBe(500 + SCORE_PER_BRICK);
+  });
+
   it("pays no life bonus at zero lives, and never a negative one", () => {
     expect(new ScoreKeeper().registerLevelClear(0).livesBonus).toBe(0);
     expect(new ScoreKeeper().registerLevelClear(-2).livesBonus).toBe(0);
@@ -98,5 +125,23 @@ describe("ScoreKeeper", () => {
     s.registerBrickDestroyed();
     s.registerLevelClear(1);
     expect(s.comboCount).toBe(0);
+  });
+
+  it("pays a flat bonus for catching a booster", () => {
+    const s = new ScoreKeeper();
+    expect(s.registerBoosterCaught()).toBe(SCORE_PER_BOOSTER_CAUGHT);
+    expect(s.score).toBe(SCORE_PER_BOOSTER_CAUGHT);
+  });
+
+  // Catching happens at the paddle, but it is not a paddle *bounce* — the
+  // combo deliberately survives it, so grabbing a drop mid-rally neither
+  // helps nor hurts the multiplier.
+  it("leaves the combo untouched when a booster is caught", () => {
+    const s = new ScoreKeeper();
+    s.registerBrickDestroyed();
+    s.registerBrickDestroyed();
+    s.registerBoosterCaught();
+    expect(s.comboCount).toBe(2);
+    expect(s.registerBrickDestroyed()).toBe(SCORE_PER_BRICK * 3);
   });
 });

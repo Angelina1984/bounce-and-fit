@@ -189,7 +189,7 @@ export class PrototypeScene extends Phaser.Scene {
       getPrimaryBall: () => this.primaryBall,
       createBall: (x, y) => this.createBallSprite(x, y),
       getBallSpeed: () => this.ballSpeed,
-      onChange: () => this.hud.setBoosterStatus(this.boosters.getStatusText()),
+      onChange: () => this.hud.setBoosters(this.boosters.getActiveBoosters()),
     });
 
     // Wrapped in arrow functions rather than passed as bare method
@@ -242,7 +242,7 @@ export class PrototypeScene extends Phaser.Scene {
     this.hud.setLevel(this.levelIndex, LEVELS[this.levelIndex].name);
     this.hud.setLives(this.livesRemaining);
     this.hud.setScore(this.scoring.score);
-    this.hud.setBoosterStatus(this.boosters.getStatusText());
+    this.hud.setBoosters(this.boosters.getActiveBoosters());
   }
 
   private createBallSprite(x: number, y: number): Phaser.Physics.Arcade.Image {
@@ -384,6 +384,8 @@ export class PrototypeScene extends Phaser.Scene {
     const puImage = powerUp as Phaser.Physics.Arcade.Image;
     const type = puImage.getData("type") as BoosterType;
     catchPop(this, puImage.x, puImage.y, POWER_UP_TINTS[type]);
+    this.scoring.registerBoosterCaught();
+    this.hud.setScore(this.scoring.score);
     puImage.destroy();
     this.boosters.apply(type);
   }
@@ -449,6 +451,10 @@ export class PrototypeScene extends Phaser.Scene {
   }
 
   update(): void {
+    // Badges tick down in real time, so they refresh before any state guard
+    // below — boosters keep running while SERVING (Foresight in particular).
+    this.hud.setBoosters(this.boosters.getActiveBoosters());
+
     // Foresight also previews the *serve*, which happens in the SERVING
     // state — so it has to be drawn before the PLAYING-only guard below.
     if (this.state === GAME_STATE.SERVING) {
@@ -542,18 +548,26 @@ export class PrototypeScene extends Phaser.Scene {
       body.setVelocity(0, 0);
     });
 
-    this.hud.showMessage(result === GAME_STATE.WON ? "Congrats! Level clear!" : "Out of lives");
+    this.hud.showMessage(result === GAME_STATE.WON ? `Level ${this.levelIndex + 1} clear!` : "Out of lives");
 
     if (result === GAME_STATE.WON) {
       // Bonuses land before the breakdown is rendered, so the number shown
       // is the score the next level actually starts from.
       const bonus = this.scoring.registerLevelClear(this.livesRemaining);
       this.hud.setScore(bonus.total);
-      this.hud.showScoreBreakdown([
-        ["Level clear", bonus.levelClear],
-        [`Lives x${this.livesRemaining}`, bonus.livesBonus],
-        ["Total", bonus.total],
-      ]);
+
+      // Every row is shown so the column visibly adds up to the total.
+      // Listing only the two bonuses (as this first did) left most of the
+      // score unexplained — "Level clear 100" next to "Total 2,455" reads
+      // like broken arithmetic, and prompted "what is the 100 for?".
+      const plus = (n: number) => `+${n.toLocaleString()}`;
+      const rows: Array<[string, string]> = [];
+      if (bonus.carriedIn > 0) rows.push(["Carried over", bonus.carriedIn.toLocaleString()]);
+      rows.push([`Bricks & catches`, plus(bonus.earned)]);
+      rows.push(["Level clear bonus", plus(bonus.levelClear)]);
+      rows.push([`Lives left x${this.livesRemaining}`, plus(bonus.livesBonus)]);
+      rows.push(["Total", bonus.total.toLocaleString()]);
+      this.hud.showScoreBreakdown(rows);
 
       const isLastLevel = this.levelIndex >= LEVELS.length - 1;
       this.hud.setAction(isLastLevel ? "Play Again" : "Next Level", () => {
@@ -583,7 +597,7 @@ export class PrototypeScene extends Phaser.Scene {
       // Lives are a run-wide resource (they carry across levels), so running
       // out is a full game over — retry restarts the whole run from level 1,
       // not just a replay of the level you happened to be on.
-      this.hud.showScoreBreakdown([["Final score", this.scoring.score]]);
+      this.hud.showScoreBreakdown([["Final score", this.scoring.score.toLocaleString()]]);
       this.hud.setAction("Tap to retry", () => {
         this.levelIndex = 0;
         // A fresh run: no carryScore, so the next create() starts at 0.

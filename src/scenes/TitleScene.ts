@@ -20,7 +20,7 @@ export class TitleScene extends Phaser.Scene {
       .text(
         width / 2,
         height / 2 - 30,
-        "A calm, puzzle-driven brick breaker",
+        "Aim your bounce. Break every brick.",
         outlinedTextStyle("16px", 2, TEXT_COLOR_MUTED),
       )
       .setOrigin(0.5);

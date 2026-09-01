@@ -63,13 +63,20 @@ Reported live as "I have no idea how many points I scored" — there was no poin
 | Tough brick | the hit cost multiplies it — a 3-hit brick is worth 3× a plain one |
 | Combo multiplier | rises by 1 per brick destroyed **within a single paddle-to-paddle trip**, capped at ×5 |
 | Level cleared | +100 |
+| Booster drop caught | +25 |
 | Each life still in hand at level end | +50 |
 
 **The combo is the design content here, not decoration.** A flat per-brick score would reward volume — grinding out bricks one at a time — which pulls directly against §2's Core Hook and §8's competitive bet that this game is about planning rather than reflex. Scaling by how many bricks fall to a *single aimed shot* rewards exactly the thing the game claims to be about: a bounce angled to rake along a row is worth several times the same bricks poked out individually. It also gives the boosters a scoring dimension they didn't have — Burning Ball's pierce and the multi-ball boosters become score plays, not just survival aids.
 
 The ×5 cap exists so Burning Ball (which can clear a whole column in one trip) stays a strong reward rather than a runaway one. The per-life bonus is what keeps the lives constraint meaningful to a score-motivated player: clearing without missing is worth materially more than scraping through, which matches §3's "power-ups should help the player spend lives more intelligently — not erase the constraint."
 
+**Catching a booster pays a flat bonus, and does not touch the combo.** A catch is an intercept across the arena and deserves credit, but it is not a paddle *bounce* — letting it extend a multiplier would push players to fish for drops instead of clearing bricks. This does not conflict with "no punishment for missed star-brick drops" (§3's non-rules): a missed drop still costs nothing, you simply don't collect the bonus.
+
+**Every active effect shows a countdown badge in the HUD** — a dot in its own color, its name, and whole seconds remaining. Once every booster became a real-time timer, "which effects are on" stopped being enough information: a player needs to know whether Wide Paddle has seven seconds left or half of one. Capped at four badges, which is all a single centered row fits at this width.
+
 **Score is run-wide, like lives.** It carries forward through "Next Level" and resets to zero on a retry or "Play Again" — a run's score is the score of that run.
+
+**The level-clear screen names the level and shows a breakdown that sums to the total** — carried over, earned this level, clear bonus, lives bonus. Because the score is run-wide, a total alone can't tell a player what they just earned versus what they already had; a panel listing only the bonuses next to a much larger total reads as an error rather than a summary.
 
 **Deliberately not in yet:** no high-score persistence (that's `localStorage`, §6b MVP scope, not the ugly prototype), and no star ratings (see §5).
 
